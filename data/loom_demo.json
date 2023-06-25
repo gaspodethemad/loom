@@ -5,7 +5,7 @@
         "text": "",
         "children": [
             {
-                "text": "",
+                "text": "Welcome to Loom. \nWhat would you like to do?",
                 "children": [
                     {
                         "id": "d56aafb6-165f-11ec-b847-acde48001122",
@@ -12121,7 +12121,7 @@
                             }
                         ],
                         "parent_id": "af4931cc-165f-11ec-b847-acde48001122",
-                        "open": false,
+                        "open": 0,
                         "meta": {
                             "origin": "split (from child 9888ec64-1661-11ec-b74d-acde48001122)",
                             "source": "prompt",
@@ -14010,5 +14010,11 @@
         }
     },
     "selected_node_id": "af4931cc-165f-11ec-b847-acde48001122",
-    "frame": {}
+    "frame": {},
+    "multiloom_settings": {
+        "server": "",
+        "port": 8080,
+        "authorname": "",
+        "password": ""
+    }
 }

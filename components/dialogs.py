@@ -12,6 +12,7 @@ from util.keybindings import tkinter_keybindings, special_keybindings
 from view.colors import default_color, text_color, bg_color, PROB_1, PROB_2, PROB_3, PROB_4, PROB_5, PROB_6
 from view.styles import textbox_config
 from components.templates import *
+from util.multiloom import *
 import math
 import json
 import codecs
@@ -1028,6 +1029,53 @@ class VisualizationSettingsDialog(Dialog):
             self.orig_params[key] = var.get()
         self.result = self.orig_params
 
+
+class MultiloomSettingsDialog(Dialog):
+    def __init__(self, parent, orig_params, user_params, state):
+        self.orig_params = orig_params
+        self.user_params = user_params
+        self.state = state
+        self.vars = {
+            "server": tk.StringVar,
+            "port": tk.IntVar,
+            "authorname": tk.StringVar,
+            "password": tk.StringVar
+        }
+        for key in self.vars.keys():
+            self.vars[key] = self.vars[key](value=orig_params[key])
+            
+        Dialog.__init__(self, parent, title="Multiloom Settings")
+
+    def body(self, master):
+        row = master.grid_size()[1]
+        create_side_label(master, "Server", row)
+        entry = ttk.Entry(master, textvariable=self.vars["server"])
+        entry.grid(row=row, column=1, pady=3)
+        row = master.grid_size()[1]
+        create_side_label(master, "Port", row)
+        entry = ttk.Entry(master, textvariable=self.vars["port"])
+        entry.grid(row=row, column=1, pady=3)
+        row = master.grid_size()[1]
+        create_side_label(master, "Author name", row)
+        entry = ttk.Entry(master, textvariable=self.vars["authorname"])
+        entry.grid(row=row, column=1, pady=3)
+        row = master.grid_size()[1]
+        create_side_label(master, "Password", row)
+        entry = ttk.Entry(master, textvariable=self.vars["password"])
+        entry.grid(row=row, column=1, pady=3)
+
+    def apply(self):
+        for key, var in self.vars.items():
+            self.orig_params[key] = var.get()
+        self.result = self.orig_params
+        self.state.update_user_frame(update={'multiloom_settings':{
+            'server': self.orig_params['server'],
+            'port': self.orig_params['port'],
+            'authorname': self.orig_params['authorname'],
+            'password': self.orig_params['password']
+        }})
+        # connect to multiloom server
+        self.user_params['multiloom'] = Multiloom(self.orig_params['server'], self.orig_params['port'], self.orig_params['authorname'], self.orig_params['password'])
 
 
 class MultimediaDialog(Dialog):

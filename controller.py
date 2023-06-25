@@ -236,6 +236,7 @@ class Controller:
                 ('Visualization settings', 'Ctrl+U', None, no_junk_args(self.visualization_settings_dialog)),
                 ('Chat settings', None, None, no_junk_args(self.chat_dialog)),
                 ('Model config', None, None, no_junk_args(self.model_config_dialog)),
+                ('Multiloom settings', None, None, no_junk_args(self.multiloom_settings_dialog)),
                 #('Settings', None, None, no_junk_args(self.settings))
 
             ],
@@ -1853,6 +1854,11 @@ class Controller:
     def inline_generation_settings_dialog(self):
         dialog = GenerationSettingsDialog(parent=self.display.frame, orig_params=self.state.inline_generation_settings, 
                                           user_params=self.state.user_inline_generation_settings, state=self.state)
+
+    @metadata(name="Multiloom Settings")
+    def multiloom_settings_dialog(self):
+        dialog = MultiloomSettingsDialog(parent=self.display.frame, orig_params=self.state.multiloom_settings,
+                                         user_params=self.state.user_multiloom_settings, state=self.state)
 
     def chat_dialog(self):
         dialog = ChatDialog(parent=self.display.frame, state=self.state)
