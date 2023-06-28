@@ -237,6 +237,7 @@ DEFAULT_MULTILOOM_SETTINGS = {
     "server":"",
     "port": 8080,
     "authorname":"",
+    "tree_id":"",
     "password":"",
     "update_interval": 60, # seconds. only update if last update was more than this many seconds ago
     "last_server_update": "2021-01-01 00:00:00", # date of last server update
@@ -567,22 +568,22 @@ class TreeModel:
 
         # check if any multiloom-relevant have been passed in kwargs (add, edit, delete)
         # if so, update multiloom tree
-        # if self.multiloom_settings['server'] != '':
-        #     # first, update the server
-        #     if 'add' in kwargs:
-        #         for id in kwargs['add']:
-        #             post_node(self.node(id), self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password'])
-        #     elif 'edit' in kwargs:
-        #         for id in kwargs['edit']:
-        #             # if it's the root node, use the server's root node id
-        #             if id == self.tree_raw_data['root']['id']:
-        #                 id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password']).json()['root']['id']
-        #             update_node(self.node(id), self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password'])
-        #     elif 'delete' in kwargs:
-        #         for id in kwargs['delete']:
-        #             delete_node(id, self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password'])
-        #     # then, update the local tree
-        #     self.server_update()
+        if self.multiloom_settings['server'] != '':
+            # first, update the server
+            if 'add' in kwargs:
+                for id in kwargs['add']:
+                    post_node(self.node(id), self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
+            elif 'edit' in kwargs:
+                for id in kwargs['edit']:
+                    # if it's the root node, use the server's root node id
+                    if id == self.tree_raw_data['root']['id']:
+                        id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['root']['id']
+                    update_node(self.node(id), self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
+            elif 'delete' in kwargs:
+                for id in kwargs['delete']:
+                    delete_node(id, self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
+            # then, update the local tree
+            self.server_update()
 
     # def tree_updated_silent(self):
     #     self.rebuild_tree()
@@ -762,6 +763,8 @@ class TreeModel:
             self.pre_selection_updated(**kwargs)
 
             self.selected_node_id = node_id
+            if self.selected_node is None:
+                self.selected_node = self.tree_node_dict[node_id]
             self.selected_node["visited"] = True
             self.tree_raw_data["selected_node_id"] = self.selected_node_id
             if reveal_node:
@@ -2062,8 +2065,8 @@ class TreeModel:
             # TODO save history
             
             # post the node to the server
-            if self.multiloom_settings['server'] != '':
-                post_node(node, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password'])
+            # if self.multiloom_settings['server'] != '':
+            #     post_node(node, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
 
     def delete_failed_nodes(self, nodes, error):
         print(f"ERROR {error}. Deleting failures")
@@ -2552,10 +2555,20 @@ class TreeModel:
         # DEBUG print((datetime.datetime.now() - datetime.datetime.strptime(self.multiloom_settings['last_server_update'], "%Y-%m-%d %H:%M:%S")).total_seconds())
         if (datetime.datetime.now() - datetime.datetime.strptime(self.multiloom_settings['last_server_update'], "%Y-%m-%d %H:%M:%S")).total_seconds() > self.multiloom_settings['update_interval']:
             # if the number of nodes on the server is way different than the number of nodes in the local tree, rebuild the local tree from the server
-            node_count_server = get_node_count(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password']).json()['count']
+            response = get_node_count(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
             
-            print(node_count_server, len(flatten_tree(self.tree_raw_data['root'])))
-            if node_count_server - len(flatten_tree(self.tree_raw_data['root'])) > 10:
+            if response.json()['success'] == False:
+                print("Multiloom server error: " + response.json()['error'])
+                return
+
+            node_count_server = response.json()['count']
+            
+            # print(node_count_server, len(flatten_tree(self.tree_raw_data['root'])))
+            # there must be a better way to do this but I'm tired
+            #if node_count_server - len(flatten_tree(self.tree_raw_data['root'])) > 10:
+            
+            # if we've never updated the local tree from the server, rebuild the local tree from the server
+            if self.multiloom_settings['last_server_update'] == "2021-01-01 00:00:00":
                 self.rebuild_tree_from_server()
             # otherwise, just update the local tree with the server's changes
             else:
@@ -2568,7 +2581,7 @@ class TreeModel:
 
     def update_tree_with_nodes(self, nodes, full_update=False):
         
-        root_id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['password']).json()['node']['id']
+        root_id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']['id']
 
         for id in nodes:
             node = nodes[id]
@@ -2597,17 +2610,18 @@ class TreeModel:
         for id in nodes:
             node = nodes[id]
             if node['parent_id'] == root_id:
+                node['parent_id'] = local_root_id
                 nodes[local_root_id]['children'].append(node)
-                print(f"adding child {id} to root node {local_root_id}")
+                # print(f"adding child {id} to root node {local_root_id}")
             elif node['parent_id'] == None:
                 # this is the root node
                 pass
             else:
                 nodes[node['parent_id']]['children'].append(node)
-                print(f"adding child {id} to parent {node['parent_id']}")
+                # print(f"adding child {id} to parent {node['parent_id']}")
 
 
-        print(f"num nodes to add: {len(nodes)}")
+        # print(f"num nodes to add: {len(nodes)}")
         if full_update:
             #self.tree_raw_data['root'] = nodes[local_root_id]
             self.tree_raw_data['root']['children'] = nodes[local_root_id]['children']
@@ -2621,106 +2635,49 @@ class TreeModel:
             return
         
         # build list of new nodes and list of updated nodes
-        # new_nodes = []
-        # updated_nodes = []
+        new_nodes = []
+        updated_nodes = []
 
-        # for id in nodes:
-        #     if id in self.tree_node_dict:
-        #         if nodes[id]['text'] != self.node(id)['text']:
-        #             updated_nodes.append(id)
-        #     else:
-        #         new_nodes.append(id)
+        for id in nodes:
+            if id in self.tree_node_dict:
+                if nodes[id]['text'] != self.node(id)['text']:
+                    updated_nodes.append(id)
+            else:
+                new_nodes.append(id)
 
-        # print(f"num new nodes: {len(new_nodes)}")
-        # print(f"num updated nodes: {len(updated_nodes)}")
-        
-        # # add new nodes to tree
-        # for id in new_nodes:
-        #     # if we already added this node, skip it
-        #     if id in self.tree_node_dict:
-        #         if self.tree_node_dict[id]['text'] == nodes[id]['text']:
-        #             continue
-        #     # if this node has no parent, it's the root node
-        #     if nodes[id]['parent_id'] == None:
-        #         self.tree_node_dict['root'] = nodes[id]
-        #         continue
-        #     # if the parent node is not in the tree, add it
-        #     if nodes[id]['parent_id'] not in self.tree_node_dict:
-        #         self.tree_node_dict[nodes[id]['parent_id']] = nodes[nodes[id]['parent_id']]
-        #         self.tree_updated(add=[nodes[id]['parent_id']])
-        #     self.tree_node_dict[id] = nodes[id]
-        # print(len(self.tree_node_dict))
-        # self.tree_updated(add=new_nodes, rebuild_dict=True)
+        print(f"num new nodes: {len(new_nodes)}")
+        print(f"num updated nodes: {len(updated_nodes)}")
 
-        # # update existing nodes
-        # for id in updated_nodes:
-        #     self.tree_node_dict[id] = nodes[id]
-        # self.tree_updated(edit=updated_nodes, rebuild_dict=True)
-                
+        # add new nodes to tree
+        for id in new_nodes:
+            node = nodes[id]
+            if node['parent_id'] == local_root_id:
+                self.tree_raw_data['root']['children'].append(node)
+            else:
+                self.tree_node_dict[node['parent_id']]['children'].append(node)
+            self.tree_node_dict[id] = node
 
-        # self.root()['text'] = nodes['root']['text']
-        # print(len(nodes.values()))
-        # if full_update:
-        #     self.tree_node_dict = {node["id"]: node for node in nodes.values()}
-        # else:
-        #     for id in nodes:
-        #         self.tree_node_dict[id] = nodes[id]
-        
-        # self.rebuild_tree()
-        # print(len(flatten_tree(self.tree_raw_data['root'])))
+        # update existing nodes
+        for id in updated_nodes:
+            node = nodes[id]
+            self.tree_node_dict[id]['text'] = node['text']
+            self.tree_node_dict[id]['meta'] = node['meta']
 
-        # # iterate through nodes and add them to the tree
-        # while len(nodes) > 0:
-        #     for id in nodes:
-        #         node = nodes[id]
-        #         if id == 'root':
-        #             # print('set root' + str(node))
-        #             self.tree_raw_data['root']['text'] = node['text']
-        #             self.tree_updated(edit=['root'])
-        #             #fix_tree(self.tree_raw_data)
-        #             del nodes[id]
-        #             break
-        #         else:
-        #             if node['parent_id'] == 'root':
-        #                 self.tree_raw_data['root']['children'].append(node)
-        #                 self.tree_updated(add=[node['id']])
-        #                 del nodes[id]
-        #                 break
-        #             elif self.node(node['id']):
-        #                 self.node(node['id'])['text'] = node['text']
-        #                 self.node(node['id'])['mutable'] = True
-        #                 self.node(node['id'])['meta']['creation_timestamp'] = node['meta']['creation_timestamp']
-        #                 self.node(node['id'])['meta']['author'] = node['meta']['author']
-        #                 self.tree_updated(edit=[node['id']])
-        #                 del nodes[id]
-        #                 break
-        #             elif self.node(node['parent_id']):
-        #                 if 'children' not in self.node(node['parent_id']):
-        #                     self.node(node['parent_id'])['children'] = []
-        #                 found_child = False
-        #                 for child in self.node(node['parent_id'])['children']:
-        #                     if child['id'] == node['id']:
-        #                         found_child = True
-        #                         child['text'] = node['text']
-        #                         child['mutable'] = True
-        #                         child['meta']['creation_timestamp'] = node['meta']['creation_timestamp']
-        #                         child['meta']['author'] = node['meta']['author']
-        #                         self.tree_updated(edit=[node['id']])
-        #                         del nodes[id]
-        #                         break
-        #                 if not found_child:
-        #                     self.node(node['parent_id'])['children'].append(node)
-        #                     self.tree_updated(add=[node['id']])
-        #                     del nodes[id]
-        #                     break
-        #                 else:
-        #                     break
-        #    print(f"nodes left: {len(nodes)}              ", end='\r')
+        #self.tree_updated(write=True)
+        self.rebuild_tree()
 
     def update_tree_from_server(self):
         # get only nodes that have been updated since last update, as well as the update history since last update
-        response_nodes = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
-        response_history = get_history(self.multiloom_settings['server'], self.multiloom_settings['port'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
+        response_nodes = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
+        response_history = get_history(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
+
+        if response_nodes.json()['success'] == False:
+            print("Multiloom server error: " + response_nodes.json()['error'])
+            return
+        
+        if response_history.json()['success'] == False:
+            print("Multiloom server error: " + response_history.json()['error'])
+            return
 
         nodes = response_nodes.json()['nodes']
         history = response_history.json()['history']
@@ -2746,10 +2703,13 @@ class TreeModel:
 
 
     def rebuild_tree_from_server(self):
-        response = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], password=self.multiloom_settings['password'])
+        response = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if response.json()['success'] == False:
+            print("Multiloom server error: " + response.json()['error'])
+            return
         nodes = response.json()['nodes']
         # print(nodes)
-        print(f"rebuilding tree, num nodes: {len(nodes)}")
+        # print(f"rebuilding tree, num nodes: {len(nodes)}")
         self.update_tree_with_nodes(nodes, full_update=True)
 
         

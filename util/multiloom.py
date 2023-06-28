@@ -10,7 +10,7 @@ def get_timestamp():
     """
     return time.strftime('%Y-%m-%d %H:%M:%S')
 
-def post_node(node, author, server, port, password):
+def post_node(node, author, server, port, tree_id, password):
     """
     Post a node to a Multiloom server
     :param node: The node to post
@@ -28,12 +28,13 @@ def post_node(node, author, server, port, password):
         "timestamp": get_timestamp()
     }
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     response = requests.post(f'http://{server}:{port}/nodes', json=data, headers=headers)
     return response
 
-def update_node(node, author, server, port, password):
+def update_node(node, author, server, port, tree_id, password):
     """
     Update a node on a Multiloom server
     :param node: The node to update
@@ -50,17 +51,18 @@ def update_node(node, author, server, port, password):
         "timestamp": get_timestamp()
     }
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     # Check if the node exists on the server
-    response = get_node(node.id, server, port, password)
+    response = get_node(node.id, server, port, tree_id, password)
     if response.status_code == 404:
         # If it doesn't, post it
-        return post_node(node, author, server, port, password)
+        return post_node(node, author, server, port, tree_id, password)
     response = requests.put(f'http://{server}:{port}/nodes/{node.id}', json=data, headers=headers)
     return response
 
-def delete_node(node_id, server, port, password):
+def delete_node(node_id, server, port, tree_id, password):
     """
     Delete a node from a Multiloom server
     :param node_id: The id of the node to delete
@@ -70,12 +72,13 @@ def delete_node(node_id, server, port, password):
     :return: The response from the server
     """
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     response = requests.delete(f'http://{server}:{port}/nodes/{node_id}', headers=headers)
     return response
 
-def get_node(node_id, server, port, password):
+def get_node(node_id, server, port, tree_id, password):
     """
     Get a node from a Multiloom server
     :param node_id: The id of the node to get
@@ -86,12 +89,13 @@ def get_node(node_id, server, port, password):
     """
 
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     response = requests.get(f'http://{server}:{port}/nodes/{node_id}', headers=headers)
     return response
 
-def get_node_count(server, port, password):
+def get_node_count(server, port, tree_id, password):
     """
     Get the number of nodes on a Multiloom server
     :param server: The server to get from
@@ -100,7 +104,8 @@ def get_node_count(server, port, password):
     :return: The response from the server
     """
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     response = requests.get(f'http://{server}:{port}/nodes/count', headers=headers)
     return response
@@ -108,6 +113,7 @@ def get_node_count(server, port, password):
 def get_nodes(
     server,
     port,
+    tree_id,
     password,
     timestamp="",
 ):
@@ -120,7 +126,8 @@ def get_nodes(
     :return: The response from the server
     """
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     if timestamp == "":
         response = requests.get(f'http://{server}:{port}/nodes', headers=headers)
@@ -128,7 +135,7 @@ def get_nodes(
         response = requests.get(f'http://{server}:{port}/nodes/get/{timestamp}', headers=headers)
     return response
 
-def get_root_node(server, port, password):
+def get_root_node(server, port, tree_id, password):
     """
     Get the root node from a Multiloom server
     :param server: The server to get from
@@ -137,7 +144,8 @@ def get_root_node(server, port, password):
     :return: The response from the server
     """
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     response = requests.get(f'http://{server}:{port}/nodes/root', headers=headers)
     return response
@@ -145,6 +153,7 @@ def get_root_node(server, port, password):
 def get_history(
     server,
     port,
+    tree_id,
     password,
     timestamp="",
 ):
@@ -152,69 +161,17 @@ def get_history(
     Get the history of a Multiloom server
     :param server: The server to get from
     :param port: The port to get from
+    :param tree_id: The id of the tree to get history for
     :param password: The password to get with
     :param timestamp: The timestamp to get history after (blank for all)
     :return: The response from the server
     """
     headers = {
-        "Authorization": password
+        "Authorization": password,
+        "Tree-Id": tree_id
     }
     if timestamp == "":
         response = requests.get(f'http://{server}:{port}/history', headers=headers)
     else:
         response = requests.get(f'http://{server}:{port}/history/{timestamp}', headers=headers)
     return response
-
-class Multiloom:
-    """
-    A class for interacting with a Multiloom server
-    """
-    def __init__(self, server, port, password, author):
-        self.server = server
-        self.port = port
-        self.password = password
-        self.author = author
-
-    def get_node(self, node_id):
-        """
-        Get a node from this Multiloom server
-        :param node_id: The id of the node to get
-        :return: The node
-        """
-        response = get_node(node_id, self.server, self.port, self.password)
-        if response.status_code == 404:
-            return None
-        return util_tree.node_from_dict(response.json())
-
-    def get_nodes(self, timestamp=""):
-        """
-        Get nodes from this Multiloom server
-        :param timestamp: The timestamp to get nodes after (blank for all)
-        :return: The nodes
-        """
-        response = get_nodes(self.server, self.port, self.password, timestamp)
-        return util_tree.nodes_from_dicts(response.json())
-
-    def post_node(self, node):
-        """
-        Post a node to this Multiloom server
-        :param node: The node to post
-        :return: The response from the server
-        """
-        return post_node(node, self.author, self.server, self.port, self.password)
-
-    def update_node(self, node):
-        """
-        Update a node on this Multiloom server
-        :param node: The node to update
-        :return: The response from the server
-        """
-        return update_node(node, self.author, self.server, self.port, self.password)
-
-    def delete_node(self, node_id):
-        """
-        Delete a node from this Multiloom server
-        :param node_id: The id of the node to delete
-        :return: The response from the server
-        """
-        return delete_node(node_id, self.server, self.port, self.password)

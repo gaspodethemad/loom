@@ -1038,8 +1038,10 @@ class MultiloomSettingsDialog(Dialog):
         self.vars = {
             "server": tk.StringVar,
             "port": tk.IntVar,
+            "tree_id": tk.StringVar,
             "authorname": tk.StringVar,
-            "password": tk.StringVar
+            "password": tk.StringVar,
+            "update_interval": tk.IntVar
         }
         for key in self.vars.keys():
             self.vars[key] = self.vars[key](value=orig_params[key])
@@ -1056,12 +1058,20 @@ class MultiloomSettingsDialog(Dialog):
         entry = ttk.Entry(master, textvariable=self.vars["port"])
         entry.grid(row=row, column=1, pady=3)
         row = master.grid_size()[1]
+        create_side_label(master, "Tree ID", row)
+        entry = ttk.Entry(master, textvariable=self.vars["tree_id"])
+        entry.grid(row=row, column=1, pady=3)
+        row = master.grid_size()[1]
         create_side_label(master, "Author name", row)
         entry = ttk.Entry(master, textvariable=self.vars["authorname"])
         entry.grid(row=row, column=1, pady=3)
         row = master.grid_size()[1]
         create_side_label(master, "Password", row)
         entry = ttk.Entry(master, textvariable=self.vars["password"])
+        entry.grid(row=row, column=1, pady=3)
+        row = master.grid_size()[1]
+        create_side_label(master, "Update interval", row)
+        entry = ttk.Entry(master, textvariable=self.vars["update_interval"])
         entry.grid(row=row, column=1, pady=3)
 
     def apply(self):
@@ -1071,11 +1081,13 @@ class MultiloomSettingsDialog(Dialog):
         self.state.update_user_frame(update={'multiloom_settings':{
             'server': self.orig_params['server'],
             'port': self.orig_params['port'],
+            'tree_id': self.orig_params['tree_id'],
             'authorname': self.orig_params['authorname'],
-            'password': self.orig_params['password']
+            'password': self.orig_params['password'],
+            'update_interval': self.orig_params['update_interval']
         }})
         # connect to multiloom server
-        self.user_params['multiloom'] = Multiloom(self.orig_params['server'], self.orig_params['port'], self.orig_params['authorname'], self.orig_params['password'])
+        # self.user_params['multiloom'] = Multiloom(self.orig_params['server'], self.orig_params['port'], self.orig_params['authorname'], self.orig_params['password'])
 
 
 class MultimediaDialog(Dialog):
