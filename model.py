@@ -795,7 +795,10 @@ class TreeModel:
 
             self.selected_node_id = node_id
             if self.selected_node is None:
-                self.selected_node = self.tree_node_dict[node_id]
+                if node_id in self.tree_node_dict:
+                    self.selected_node = self.tree_node_dict[node_id]
+                else:
+                    return self.tree_raw_data["root"]
             self.selected_node["visited"] = True
             self.tree_raw_data["selected_node_id"] = self.selected_node_id
             if reveal_node:
@@ -2585,6 +2588,10 @@ class TreeModel:
     #################################
     #   Multiloom
     #################################
+
+    @event
+    def multiloom_updated(self):
+        pass
     
     def server_update(self):
         # if last update was more than the update interval ago, update the server
@@ -2605,15 +2612,18 @@ class TreeModel:
             
             # OK TURNED OUT THERE WAS A BETTER WAY TO DO THIS
             # if we've never updated the local tree from the server, rebuild the local tree from the server
-            if self.multiloom_settings['last_server_update'] == "2021-01-01 00:00:00":
-                self.rebuild_tree_from_server()
+            # if self.multiloom_settings['last_server_update'] == "2021-01-01 00:00:00":
+            self.rebuild_tree_from_server()
+            self.rebuild_tree()
             # otherwise, just update the local tree with the server's changes
-            else:
-                self.update_tree_from_server()
+            # else:
+            #     self.update_tree_from_server()
             # update last_server_update
             self.update_user_frame({'multiloom_settings':{
                 'last_server_update': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }})
+
+            self.multiloom_updated()
             # print(self.multiloom_settings['last_server_update'])
 
     def update_tree_with_nodes(self, nodes, full_update=False):
@@ -2649,14 +2659,14 @@ class TreeModel:
             if node['parent_id'] == root_id:
                 node['parent_id'] = local_root_id
                 nodes[local_root_id]['children'].append(node)
-                # print(f"adding child {id} to root node {local_root_id}")
+                print(f"adding child {id} to root node {local_root_id}")
             elif node['parent_id'] == None:
                 # this is the root node
                 pass
             else:
                 if node['parent_id'] in nodes:
                     nodes[node['parent_id']]['children'].append(node)
-                    # print(f"adding child {id} to parent {node['parent_id']}")
+                    print(f"adding child {id} to parent {node['parent_id']}")
 
 
         # print(f"num nodes to add: {len(nodes)}")
@@ -2664,8 +2674,15 @@ class TreeModel:
             #self.tree_raw_data['root'] = nodes[local_root_id]
             self.tree_raw_data['root']['children'] = nodes[local_root_id]['children']
             self.tree_raw_data['root']['text'] = nodes[local_root_id]['text']
-            self.tree_node_dict = {d: nodes[d] for d in nodes}
-            #self.tree_updated(write=True)
+            # create union of local tree and server tree
+            new_node_dict = {d: nodes[d] for d in nodes}
+            for node in flatten_tree(self.tree_node_dict):
+                id = node['id']
+                if id not in new_node_dict:
+                    new_node_dict[id] = self.node(id)
+            self.tree_node_dict = new_node_dict
+            # self.tree_node_dict = {d: nodes[d] for d in nodes}
+            # self.tree_updated(write=True)
             self.rebuild_tree()
             #self.select_node(self.tree_raw_data.get("selected_node_id", self.root()['children'][0]['id']))
             # print(len(self.tree_node_dict))
@@ -2688,7 +2705,9 @@ class TreeModel:
 
         # add new nodes to tree
         for id in new_nodes:
-            self.tree_node_dict = {**self.tree_node_dict, **{id: nodes[id]}}
+            self.tree_node_dict[id] = nodes[id]
+            print(f"adding new node {id}")
+            print(self.tree_node_dict[id])
 
         # update existing nodes
         for id in updated_nodes:
