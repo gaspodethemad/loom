@@ -21,9 +21,10 @@ def post_node(node, author, server, port, tree_id, password):
     :return: The response from the server
     """
     data = {
-        "parentId": node.parent_id,
-        "text": node.text,
-        "children": node.children.keys(),
+        "id": node["id"],
+        "parentId": node["parent_id"],
+        "text": node["text"],
+        "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
         "author": author,
         "timestamp": get_timestamp()
     }
@@ -32,6 +33,33 @@ def post_node(node, author, server, port, tree_id, password):
         "Tree-Id": tree_id
     }
     response = requests.post(f'http://{server}:{port}/nodes', json=data, headers=headers)
+    return response
+
+def post_nodes(nodes, author, server, port, tree_id, password):
+    """
+    Post nodes to a Multiloom server
+    :param nodes: The nodes to post
+    :param author: The author of the nodes
+    :param server: The server to post to
+    :param port: The port to post to
+    :param password: The password to post with
+    :return: The response from the server
+    """
+    data = list()
+    for node in nodes:
+        data.append({
+            "id": node["id"],
+            "parentId": node["parent_id"],
+            "text": node["text"],
+            "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
+            "author": author,
+            "timestamp": get_timestamp()
+        })
+    headers = {
+        "Authorization": password,
+        "Tree-Id": tree_id
+    }
+    response = requests.post(f'http://{server}:{port}/nodes/batch', json=data, headers=headers)
     return response
 
 def update_node(node, author, server, port, tree_id, password):
@@ -44,9 +72,9 @@ def update_node(node, author, server, port, tree_id, password):
     :return: The response from the server
     """
     data = {
-        "parentId": node.parent_id,
-        "text": node.text,
-        "children": node.children.keys(),
+        "parentId": node["parent_id"],
+        "text": node["text"],
+        "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
         "author": author,
         "timestamp": get_timestamp()
     }
@@ -174,4 +202,53 @@ def get_history(
         response = requests.get(f'http://{server}:{port}/history', headers=headers)
     else:
         response = requests.get(f'http://{server}:{port}/history/{timestamp}', headers=headers)
+    return response
+
+def get_node_exists(
+        server,
+        port,
+        tree_id,
+        password,
+        node_id
+):
+    """
+    Get whether a node exists on a Multiloom server
+    :param server: The server to get from
+    :param port: The port to get from
+    :param tree_id: The id of the tree to check
+    :param password: The password to get with
+    :param node_id: The id of the node to check
+    :return: The response from the server
+    """
+    headers = {
+        "Authorization": password,
+        "Tree-Id": tree_id
+    }
+    response = requests.get(f'http://{server}:{port}/nodes/exists/{node_id}', headers=headers)
+    return response
+
+def get_nodes_exist(
+        server,
+        port,
+        tree_id,
+        password,
+        node_ids
+):
+    """
+    Get whether nodes exist on a Multiloom server
+    :param server: The server to get from
+    :param port: The port to get from
+    :param tree_id: The id of the tree to check
+    :param password: The password to get with
+    :param node_ids: The list of ids of the nodes to check
+    :return: The response from the server
+    """
+    headers = {
+        "Authorization": password,
+        "Tree-Id": tree_id
+    }
+    data = {
+        "nodeIds": node_ids
+    }
+    response = requests.post(f'http://{server}:{port}/nodes/exists', json=data, headers=headers)
     return response
