@@ -49,7 +49,7 @@ def post_nodes(nodes, author, server, port, tree_id, password):
     for node in nodes:
         data.append({
             "id": node["id"],
-            "parentId": node["parent_id"],
+            "parentId": node["parent_id"] if "parent_id" in node else None,
             "text": node["text"],
             "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
             "author": author,
@@ -72,7 +72,7 @@ def update_node(node, author, server, port, tree_id, password):
     :return: The response from the server
     """
     data = {
-        "parentId": node["parent_id"],
+        "parentId": node["parent_id"] if "parent_id" in node else None,
         "text": node["text"],
         "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
         "author": author,
@@ -103,7 +103,7 @@ def update_nodes(nodes, author, server, port, tree_id, password):
     for node in nodes:
         data.append({
             "id": node["id"],
-            "parentId": node["parent_id"],
+            "parentId": node["parent_id"] if "parent_id" in node else None,
             "text": node["text"],
             "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
             "author": author,

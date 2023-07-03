@@ -2635,7 +2635,7 @@ class TreeModel:
         """
         ancestry = []
         if node['parent_id'] != None:
-            parent = get_node(self.multiloom_settings['server'], self.multiloom_settings['port'], node['parent_id'], self.multiloom_settings['password']).json()['node']
+            parent = get_node(node['parent_id'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']
             if self.node(parent['id']) == None:
                 ancestry.append(parent)
                 ancestry += self.get_ancestry_from_server(parent['id'])
@@ -2834,6 +2834,18 @@ class TreeModel:
 
         # clear uncommitted changes
         self.update_user_frame({'multiloom_settings': {'uncommitted_changes': []}})
+
+        # if we still have nodes that the server doesn't have, add them
+        response = get_nodes_exist(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], node_ids=list(self.tree_node_dict.keys())).json()
+        
+        # return if all nodes exist
+        if all(response['exists'].values()):
+            return
+        
+        # otherwise, get the list of nodes that don't exist
+        to_add = [self.node(id) for id in response['exists'] if response['exists'][id] == False]
+        if len(to_add) > 0:
+            post_nodes(to_add, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
         
 
     #################################
