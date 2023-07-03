@@ -2631,16 +2631,16 @@ class TreeModel:
         """
         Recursively ensures that all of the ancestors of the given node are in the local tree.
         :param node: the node to get the ancestry of
-        :return: list of ancestor nodes not in the local tree
+        :return: dict of ancestor nodes not in the local tree
         """
-        ancestry = []
+        ancestry = {}
         if node['parent_id'] != None:
             parent = get_node(node['parent_id'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']
             # parse the parent node
             parent = {
                 'text': parent['text'],
                 'id': parent['id'],
-                'children': [],
+                'children': [node['id']],
                 'parent_id': parent['parent_ids'][0] if parent['parent_ids'] else None,
                 'mutable': True,
                 'visited': False,
@@ -2650,8 +2650,14 @@ class TreeModel:
                 }
             }
             if self.node(parent['id']) == None:
-                ancestry.append(parent)
-                ancestry += self.get_ancestry_from_server(parent['id'])
+                ancestry[parent['id']] = parent
+                ancestry.update(self.get_ancestry_from_server(parent))
+
+        # set children in ancestry
+        for id in ancestry:
+            if ancestry[id]['parent_id'] in ancestry:
+                ancestry[ancestry[id]['parent_id']]['children'].append(id)
+
         return ancestry
         
 
@@ -2675,7 +2681,7 @@ class TreeModel:
             }
 
         # set root node id to local tree's root node id
-        local_root_id = self.root()['id']
+        local_root_id = self.tree_raw_data['root']['id']
 
         if root_id in nodes:
             nodes[local_root_id] = nodes[root_id]
@@ -2708,44 +2714,71 @@ class TreeModel:
             return
 
         # build list of new nodes and list of updated nodes
-        new_nodes = []
+        new_nodes = {}
         updated_nodes = []
 
         for id in nodes:
-            if id in self.tree_node_dict:
+            if self.node(id) != None:
                 if nodes[id]['text'] != self.node(id)['text']:
+                    self.node(id)['text'] = nodes[id]['text']
                     updated_nodes.append(id)
             else:
-                new_nodes.append(id)
+                new_nodes[id] = nodes[id]
 
         # check new nodes for ancestors that aren't in the local tree
         for id in new_nodes:
-            new_nodes += [d['id'] for d in self.get_ancestry_from_server(nodes[id])]
-            new_nodes = list(set(new_nodes))
+            server_ancestors = self.get_ancestry_from_server(nodes[id])
+            for id in server_ancestors:
+                if id == root_id:
+                    continue
+                if id not in self.tree_node_dict and id not in new_nodes:
+                    new_nodes[id] = server_ancestors[id]
 
         # check updated nodes for ancestors that aren't in the local tree
         for id in updated_nodes:
-            updated_nodes += [d['id'] for d in self.get_ancestry_from_server(nodes[id])]
-            updated_nodes = list(set(updated_nodes))
+            server_ancestors = self.get_ancestry_from_server(nodes[id])
+            for id in server_ancestors:
+                if id == root_id:
+                    continue
+                if id not in self.tree_node_dict and id not in new_nodes:
+                    new_nodes[id] = server_ancestors[id]
+
+        # replace occurrences of root_id in new nodes with local root id
+        for id in new_nodes:
+            if new_nodes[id]['parent_id'] == root_id:
+                new_nodes[id]['parent_id'] = local_root_id
+        
+        if root_id in new_nodes:
+            print("removing root node from new nodes")
+            del new_nodes[root_id]
+        if local_root_id in new_nodes:
+            print("removing local root node from new nodes")
+            del new_nodes[local_root_id]
 
         print(f"num new nodes: {len(new_nodes)}")
         print(f"num updated nodes: {len(updated_nodes)}")
-
-        # add new nodes to tree
+        
+        if len(new_nodes) == 0 and len(updated_nodes) == 0:
+            return
+        
+        # add new nodes to local tree
         for id in new_nodes:
-            self.tree_node_dict[id] = nodes[id]
-            print(f"adding new node {id}")
-            print(self.tree_node_dict[id])
+            node = new_nodes[id]
+            if self.node(node['parent_id']) == None:
+                print(f"parent node {node['parent_id']} not found, skipping")
+                continue
+            self.node(node['parent_id'])['children'].append(node)
 
-        # update existing nodes
+        self.tree_updated(serverside=True, add=list(new_nodes.keys()))
+
+        # update local tree
         for id in updated_nodes:
             node = nodes[id]
-            self.tree_node_dict[id]['text'] = node['text']
-            self.tree_node_dict[id]['meta'] = node['meta']
+            self.node(id)['text'] = node['text']
 
-        self.tree_updated(serverside=True, add=new_nodes, update=updated_nodes)
-        #self.tree_updated(write=True)
-        #self.rebuild_tree()
+        # update local tree
+        self.tree_updated(serverside=True, edit=updated_nodes)
+
 
     def update_tree_from_server(self):
         # get only nodes that have been updated since last update, as well as the update history since last update
