@@ -2627,6 +2627,21 @@ class TreeModel:
             self.multiloom_updated()
             # print(self.multiloom_settings['last_server_update'])
 
+    def get_ancestry_from_server(self, node):
+        """
+        Recursively ensures that all of the ancestors of the given node are in the local tree.
+        :param node: the node to get the ancestry of
+        :return: list of ancestor nodes not in the local tree
+        """
+        ancestry = []
+        if node['parent_id'] != None:
+            parent = get_node(self.multiloom_settings['server'], self.multiloom_settings['port'], node['parent_id'], self.multiloom_settings['password']).json()['node']
+            if self.node(parent['id']) == None:
+                ancestry.append(parent)
+                ancestry += self.get_ancestry_from_server(parent['id'])
+        return ancestry
+        
+
     def update_tree_with_nodes(self, nodes, full_update=False):
         
         root_id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']['id']
@@ -2689,6 +2704,16 @@ class TreeModel:
                     updated_nodes.append(id)
             else:
                 new_nodes.append(id)
+
+        # check new nodes for ancestors that aren't in the local tree
+        for id in new_nodes:
+            new_nodes += [d['id'] for d in self.get_ancestry_from_server(nodes[id])]
+            new_nodes = list(set(new_nodes))
+
+        # check updated nodes for ancestors that aren't in the local tree
+        for id in updated_nodes:
+            updated_nodes += [d['id'] for d in self.get_ancestry_from_server(nodes[id])]
+            updated_nodes = list(set(updated_nodes))
 
         print(f"num new nodes: {len(new_nodes)}")
         print(f"num updated nodes: {len(updated_nodes)}")
@@ -2785,22 +2810,30 @@ class TreeModel:
 
     def update_server_tree(self):
         print(f"uncommitted changes: {self.multiloom_settings['uncommitted_changes']}")
-        # run through uncommitted_changes and update server accordingly
+        # run through uncommitted changes and construct list of nodes to add, update, and delete
+        to_add = []
+        to_update = []
+        to_delete = []
         for change in self.multiloom_settings['uncommitted_changes']:
-            # print(change)
             if change['action'] == 'add':
-                #post_node(self.node(change['id']), self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
-                self.server_add_node(self.node(change['id']))
+                to_add.append(change['id'])
             elif change['action'] == 'delete':
-                delete_node(change['id'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+                to_delete.append(change['id'])
             elif change['action'] == 'edit':
-                update_node(change['data'], self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
-            uncommitted_changes = self.multiloom_settings['uncommitted_changes'].copy()
-            uncommitted_changes.remove(change)
-            self.update_user_frame({'multiloom_settings':{
-                'uncommitted_changes': uncommitted_changes
-            }})
-        self.multiloom_settings['uncommitted_changes'] = []
+                to_update.append(change['id'])
+
+        # batch add, update, and delete nodes
+        if len(to_add) > 0:
+            nodes = [self.node(id) for id in to_add]
+            post_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if len(to_update) > 0:
+            nodes = [self.node(id) for id in to_update]
+            update_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if len(to_delete) > 0:
+            delete_nodes(to_delete, self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+
+        # clear uncommitted changes
+        self.update_user_frame({'multiloom_settings': {'uncommitted_changes': []}})
         
 
     #################################

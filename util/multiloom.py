@@ -90,6 +90,32 @@ def update_node(node, author, server, port, tree_id, password):
     response = requests.put(f'http://{server}:{port}/nodes/{node.id}', json=data, headers=headers)
     return response
 
+def update_nodes(nodes, author, server, port, tree_id, password):
+    """
+    Update nodes on a Multiloom server
+    :param nodes: The nodes to update
+    :param server: The server to update on
+    :param port: The port to update on
+    :param password: The password to update with
+    :return: The response from the server
+    """
+    data = list()
+    for node in nodes:
+        data.append({
+            "id": node["id"],
+            "parentId": node["parent_id"],
+            "text": node["text"],
+            "children": [child["id"] for child in node["children"]] if len(node["children"]) > 0 else list(),
+            "author": author,
+            "timestamp": get_timestamp()
+        })
+    headers = {
+        "Authorization": password,
+        "Tree-Id": tree_id
+    }
+    response = requests.put(f'http://{server}:{port}/nodes/batch', json=data, headers=headers)
+    return response
+
 def delete_node(node_id, server, port, tree_id, password):
     """
     Delete a node from a Multiloom server
@@ -104,6 +130,22 @@ def delete_node(node_id, server, port, tree_id, password):
         "Tree-Id": tree_id
     }
     response = requests.delete(f'http://{server}:{port}/nodes/{node_id}', headers=headers)
+    return response
+
+def delete_nodes(node_ids, server, port, tree_id, password):
+    """
+    Delete nodes from a Multiloom server
+    :param node_ids: The ids of the nodes to delete
+    :param server: The server to delete from
+    :param port: The port to delete from
+    :param password: The password to delete with
+    :return: The response from the server
+    """
+    headers = {
+        "Authorization": password,
+        "Tree-Id": tree_id
+    }
+    response = requests.delete(f'http://{server}:{port}/nodes/batch', json=node_ids, headers=headers)
     return response
 
 def get_node(node_id, server, port, tree_id, password):
