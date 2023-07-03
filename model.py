@@ -2636,6 +2636,19 @@ class TreeModel:
         ancestry = []
         if node['parent_id'] != None:
             parent = get_node(node['parent_id'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']
+            # parse the parent node
+            parent = {
+                'text': parent['text'],
+                'id': parent['id'],
+                'children': [],
+                'parent_id': parent['parent_ids'][0] if parent['parent_ids'] else None,
+                'mutable': True,
+                'visited': False,
+                'meta': {
+                    'creation_timestamp': parent['timestamp'],
+                    'author': parent['author']
+                }
+            }
             if self.node(parent['id']) == None:
                 ancestry.append(parent)
                 ancestry += self.get_ancestry_from_server(parent['id'])
