@@ -2705,8 +2705,9 @@ class TreeModel:
             self.tree_node_dict[id]['text'] = node['text']
             self.tree_node_dict[id]['meta'] = node['meta']
 
+        self.tree_updated(serverside=True, add=new_nodes, update=updated_nodes)
         #self.tree_updated(write=True)
-        self.rebuild_tree()
+        #self.rebuild_tree()
 
     def update_tree_from_server(self):
         # get only nodes that have been updated since last update, as well as the update history since last update
