@@ -15,6 +15,7 @@ import json
 from util.frames_util import frame_merger, frame_merger_append, frame_merger_override
 from copy import deepcopy
 import jsonlines
+import datetime
 
 from gpt import openAI_generate, search, gen
 from util.util import json_create, timestamp, json_open, clip_num, index_clip, diff
@@ -25,6 +26,7 @@ from util.util_tree import fix_miro_tree, flatten_tree, node_ancestry, in_ancest
 from util.gpt_util import conditional_logprob, tokenize_ada, prompt_probs, logprobs_to_probs, parse_logit_bias, parse_stop
 from util.multiverse_util import greedy_word_multiverse
 from util.node_conditions import conditions, condition_lambda
+from util.multiloom import *
 
 # Calls any callbacks associated with the wrapped function
 # class must have a defaultdict(list)[func_name] = [*callbacks]
@@ -231,6 +233,18 @@ DEFAULT_INLINE_GENERATION_SETTINGS = {
 }
 
 
+DEFAULT_MULTILOOM_SETTINGS = {
+    "server":"",
+    "port": 8080,
+    "authorname":"",
+    "tree_id":"",
+    "password":"",
+    "update_interval": 60, # seconds. only update if last update was more than this many seconds ago
+    "last_server_update": "2021-01-01 00:00:00", # date of last server update
+    "uncommitted_changes": [] # list of changes to be synced with server
+}
+
+
 DEFAULT_VISUALIZATION_SETTINGS = {
     'text_width': 450,
     'leaf_distance': 200,
@@ -306,13 +320,13 @@ EMPTY_TREE = {
     }
 }
 
-
 class TreeModel:
 
     def __init__(self, root):
         self.app = root
         self.app.bind("<<TreeUpdated>>", lambda _: self.tree_updated())
         self.app.bind("<<NewNodes>>", lambda _: self.edit_new_nodes())
+        self.app.bind("<<ServerUpdate>>", lambda _: self.server_update())
 
         # All variables initialized below
         self.tree_filename = None
@@ -362,6 +376,10 @@ class TreeModel:
     @property
     def inline_generation_settings(self):
         return self.state['inline_generation_settings']
+    
+    @property
+    def multiloom_settings(self):
+        return self.state['multiloom_settings']
 
     @property
     def preferences(self):
@@ -402,6 +420,12 @@ class TreeModel:
         return self.user_frame.get("inline_generation_settings") \
             if "inline_generation_settings" in self.user_frame \
             else {}
+    
+    @property
+    def user_multiloom_settings(self):
+        return self.user_frame.get("multiloom_settings") \
+            if "multiloom_settings" in self.user_frame \
+            else {}
 
     @property
     def user_module_settings(self):
@@ -429,6 +453,7 @@ class TreeModel:
         state["preferences"] = deepcopy(DEFAULT_PREFERENCES)
         state["generation_settings"] = deepcopy(DEFAULT_GENERATION_SETTINGS)
         state["inline_generation_settings"] = deepcopy(DEFAULT_INLINE_GENERATION_SETTINGS)
+        state["multiloom_settings"] = deepcopy(DEFAULT_MULTILOOM_SETTINGS)
         state["workspace"] = deepcopy(DEFAULT_WORKSPACE)
         state["module_settings"] = deepcopy(DEFAULT_MODULE_SETTINGS) 
         state["model_config"] = deepcopy(DEFAULT_MODEL_CONFIG)
@@ -538,9 +563,59 @@ class TreeModel:
 
     # Decorator calls callbacks
     @event
-    def tree_updated(self, rebuild_dict=True, **kwargs):
+    def tree_updated(self, rebuild_dict=True, serverside=False, **kwargs):
         if self.tree_raw_data and rebuild_dict:
             self.rebuild_tree()
+
+        if not serverside:
+            # check if any multiloom-relevant have been passed in kwargs (add, edit, delete)
+            # if so, add them to uncommitted_changes
+            if self.multiloom_settings['server'] != '':
+                if 'add' in kwargs:
+                    for id in kwargs['add']:
+                        print('adding', id)
+                        self.update_user_frame({'multiloom_settings':{
+                            'uncommitted_changes':self.multiloom_settings['uncommitted_changes'] + [{'id': id, 'action': 'add'}]
+                        }})
+                elif 'edit' in kwargs:
+                    for id in kwargs['edit']:
+                        # if the node's creation is also in uncommitted_changes, just skip it - the version that gets committed will be the edited version
+                        in_uncommitted_changes = False
+                        for change in self.multiloom_settings['uncommitted_changes']:
+                            if change['id'] == id and change['action'] == 'add':
+                                in_uncommitted_changes = True
+
+                        if in_uncommitted_changes:
+                            continue
+
+                        # if it's the root node, use the server's root node id
+                        print('editing', id)
+                        if id == self.tree_raw_data['root']['id']:
+                            id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['root']['id']
+                        self.update_user_frame({'multiloom_settings':{
+                            'uncommitted_changes':self.multiloom_settings['uncommitted_changes'] + [{'id': id, 'action': 'edit', 'data': self.node(id)}]
+                        }})
+                elif 'delete' in kwargs:
+                    print('deleting', kwargs['delete'])
+                    for id in kwargs['delete']:
+                        # if the node's creation is also in uncommitted_changes, just remove it
+                        matching_change = None
+                        for change in self.multiloom_settings['uncommitted_changes']:
+                            if change['id'] == id and change['action'] == 'add':
+                                matching_change = change
+                        if matching_change:
+                            new_uncommitted_changes = self.multiloom_settings['uncommitted_changes'].copy()
+                            new_uncommitted_changes.remove(matching_change)
+                            self.update_user_frame({'multiloom_settings':{
+                                'uncommitted_changes':new_uncommitted_changes
+                            }})
+                        else:
+                            # otherwise, add it to uncommitted_changes
+                            self.update_user_frame({'multiloom_settings':{
+                                'uncommitted_changes':self.multiloom_settings['uncommitted_changes'] + [{'id': id, 'action': 'delete'}]
+                            }})
+
+                print('uncommitted changes:', self.multiloom_settings['uncommitted_changes'])
 
     # def tree_updated_silent(self):
     #     self.rebuild_tree()
@@ -556,7 +631,7 @@ class TreeModel:
     def edit_new_nodes(self):
         print('new nodes:', self.new_nodes)
         self.tree_updated()
-        time.sleep(0.5)
+        time.sleep(1)
         for node_id in self.new_nodes[0]:
             self.node(node_id)['mutable'] = True
         self.tree_updated(edit=self.new_nodes[0])
@@ -564,7 +639,8 @@ class TreeModel:
 
     @event
     def pre_selection_updated(self, **kwargs):
-        pass
+        if self.multiloom_settings['server'] != '':
+            self.server_update()
 
     @event
     def selection_updated(self, **kwargs):
@@ -719,6 +795,11 @@ class TreeModel:
             self.pre_selection_updated(**kwargs)
 
             self.selected_node_id = node_id
+            if self.selected_node is None:
+                if node_id in self.tree_node_dict:
+                    self.selected_node = self.tree_node_dict[node_id]
+                else:
+                    return self.tree_raw_data["root"]
             self.selected_node["visited"] = True
             self.tree_raw_data["selected_node_id"] = self.selected_node_id
             if reveal_node:
@@ -1682,6 +1763,12 @@ class TreeModel:
             **self.tree_raw_data.get("inline_generation_settings", {})
         }
 
+        # Multiloom settings
+        self.tree_raw_data["multiloom_settings"] = {
+            **DEFAULT_MULTILOOM_SETTINGS.copy(),
+            **self.tree_raw_data.get("multiloom_settings", {})
+        }
+
         self.tree_raw_data["frame"] = self.tree_raw_data.get("frame", {})
 
         # View settings # TODO If there are more of these, reduce duplication
@@ -1733,6 +1820,12 @@ class TreeModel:
         new_tree["inline_generation_settings"] = {
             **DEFAULT_INLINE_GENERATION_SETTINGS.copy(),
             **self.tree_raw_data.get("inline_generation_settings", {})
+        }
+
+        # Multiloom settings
+        new_tree["multiloom_settings"] = {
+            **DEFAULT_MULTILOOM_SETTINGS.copy(),
+            **self.tree_raw_data.get("multiloom_settings", {})
         }
 
         # View settings # TODO If there are more of these, reduce duplication
@@ -1903,6 +1996,11 @@ class TreeModel:
         # Save tree
         json_create(save_filename, subtree)
         self.io_update()
+
+        # Update tree on server
+        if self.multiloom_settings['server'] != '':
+            self.update_server_tree()
+
         return True
 
     def export_subtree(self, root, filename, filter=None, copy_attributes=None):
@@ -2005,6 +2103,10 @@ class TreeModel:
             node["generation"] = {'id': results['id'],
                                   'index': i}
             # TODO save history
+            
+            # post the node to the server
+            # if self.multiloom_settings['server'] != '':
+            #     post_node(node, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
 
     def delete_failed_nodes(self, nodes, error):
         print(f"ERROR {error}. Deleting failures")
@@ -2483,7 +2585,314 @@ class TreeModel:
         prompt = model_response['prompt']['text']
         completion = model_response['completions'][node['generation']['index']]
         return model_response, prompt, completion
+    
+    #################################
+    #   Multiloom
+    #################################
 
+    @event
+    def multiloom_updated(self):
+        pass
+    
+    def server_update(self):
+        # if last update was more than the update interval ago, update the server
+        # DEBUG print((datetime.datetime.now() - datetime.datetime.strptime(self.multiloom_settings['last_server_update'], "%Y-%m-%d %H:%M:%S")).total_seconds())
+        if (datetime.datetime.now() - datetime.datetime.strptime(self.multiloom_settings['last_server_update'], "%Y-%m-%d %H:%M:%S")).total_seconds() > self.multiloom_settings['update_interval']:
+            # if the number of nodes on the server is way different than the number of nodes in the local tree, rebuild the local tree from the server
+            # response = get_node_count(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password'])
+            
+            # if response.json()['success'] == False:
+            #     print("Multiloom server error: " + response.json()['error'])
+            #     return
+
+            # node_count_server = response.json()['count']
+            
+            # print(node_count_server, len(flatten_tree(self.tree_raw_data['root'])))
+            # there must be a better way to do this but I'm tired
+            #if node_count_server - len(flatten_tree(self.tree_raw_data['root'])) > 10:
+            
+            # OK TURNED OUT THERE WAS A BETTER WAY TO DO THIS
+            # if we've never updated the local tree from the server, rebuild the local tree from the server
+            if self.multiloom_settings['last_server_update'] == "2021-01-01 00:00:00":
+                self.rebuild_tree_from_server()
+            #self.rebuild_tree()
+            # otherwise, just update the local tree with the server's changes
+            else:
+                self.update_tree_from_server()
+            # update last_server_update
+            self.update_user_frame({'multiloom_settings':{
+                'last_server_update': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }})
+
+            self.multiloom_updated()
+            # print(self.multiloom_settings['last_server_update'])
+
+    def get_ancestry_from_server(self, node):
+        """
+        Recursively ensures that all of the ancestors of the given node are in the local tree.
+        :param node: the node to get the ancestry of
+        :return: dict of ancestor nodes not in the local tree
+        """
+        ancestry = {}
+        if node['parent_id'] != None:
+            parent = get_node(node['parent_id'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']
+            # parse the parent node
+            parent = {
+                'text': parent['text'],
+                'id': parent['id'],
+                'children': [node['id']],
+                'parent_id': parent['parent_ids'][0] if parent['parent_ids'] else None,
+                'mutable': True,
+                'visited': False,
+                'meta': {
+                    'creation_timestamp': parent['timestamp'],
+                    'author': parent['author']
+                }
+            }
+            if self.node(parent['id']) == None:
+                ancestry[parent['id']] = parent
+                ancestry.update(self.get_ancestry_from_server(parent))
+
+        # set children in ancestry
+        for id in ancestry:
+            if ancestry[id]['parent_id'] in ancestry:
+                ancestry[ancestry[id]['parent_id']]['children'].append(id)
+
+        return ancestry
+        
+
+    def update_tree_with_nodes(self, nodes, full_update=False):
+        
+        root_id = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']['id']
+
+        for id in nodes:
+            node = nodes[id]
+            nodes[id] = {
+                'text': node['text'],
+                'id': id,
+                'children': [],
+                'parent_id': node['parent_ids'][0] if node['parent_ids'] else None,
+                'mutable': True,
+                'visited': False,
+                'meta': {
+                    'creation_timestamp': node['timestamp'],
+                    'author': node['author']
+                }
+            }
+
+        # set root node id to local tree's root node id
+        local_root_id = self.tree_raw_data['root']['id']
+
+        if root_id in nodes:
+            nodes[local_root_id] = nodes[root_id]
+            nodes[local_root_id]['id'] = local_root_id
+            del nodes[root_id]
+
+        # assign parents
+        for id in nodes:
+            node = nodes[id]
+            if node['parent_id'] == root_id:
+                node['parent_id'] = local_root_id
+                nodes[local_root_id]['children'].append(node)
+                print(f"adding child {id} to root node {local_root_id}")
+            elif node['parent_id'] == None:
+                # this is the root node
+                pass
+            else:
+                if node['parent_id'] in nodes:
+                    nodes[node['parent_id']]['children'].append(node)
+                    print(f"adding child {id} to parent {node['parent_id']}")
+
+
+        # print(f"num nodes to add: {len(nodes)}")
+        if full_update:
+            print("full update")
+            self.tree_raw_data['root']['text'] = nodes[local_root_id]['text']
+            self.tree_raw_data['root']['children'] = nodes[local_root_id]['children']
+            self.tree_node_dict = {d['id']: d for d in flatten_tree(self.tree_raw_data['root'])}
+            self.tree_updated(serverside=True, add=list(self.tree_node_dict.keys()))
+            return
+
+        # build list of new nodes and list of updated nodes
+        new_nodes = {}
+        updated_nodes = []
+
+        for id in nodes:
+            if self.node(id) != None:
+                if nodes[id]['text'] != self.node(id)['text']:
+                    self.node(id)['text'] = nodes[id]['text']
+                    updated_nodes.append(id)
+            else:
+                new_nodes[id] = nodes[id]
+
+        # check new nodes for ancestors that aren't in the local tree
+        for id in new_nodes:
+            server_ancestors = self.get_ancestry_from_server(nodes[id])
+            for id in server_ancestors:
+                if id == root_id:
+                    continue
+                if id not in self.tree_node_dict and id not in new_nodes:
+                    new_nodes[id] = server_ancestors[id]
+
+        # check updated nodes for ancestors that aren't in the local tree
+        for id in updated_nodes:
+            server_ancestors = self.get_ancestry_from_server(nodes[id])
+            for id in server_ancestors:
+                if id == root_id:
+                    continue
+                if id not in self.tree_node_dict and id not in new_nodes:
+                    new_nodes[id] = server_ancestors[id]
+
+        # replace occurrences of root_id in new nodes with local root id
+        for id in new_nodes:
+            if new_nodes[id]['parent_id'] == root_id:
+                new_nodes[id]['parent_id'] = local_root_id
+        
+        if root_id in new_nodes:
+            print("removing root node from new nodes")
+            del new_nodes[root_id]
+        if local_root_id in new_nodes:
+            print("removing local root node from new nodes")
+            del new_nodes[local_root_id]
+
+        print(f"num new nodes: {len(new_nodes)}")
+        print(f"num updated nodes: {len(updated_nodes)}")
+        
+        if len(new_nodes) == 0 and len(updated_nodes) == 0:
+            return
+        
+        # add new nodes to local tree
+        for id in new_nodes:
+            node = new_nodes[id]
+            if self.node(node['parent_id']) == None:
+                print(f"parent node {node['parent_id']} not found, skipping")
+                continue
+            self.node(node['parent_id'])['children'].append(node)
+
+        self.tree_updated(serverside=True, add=list(new_nodes.keys()))
+
+        # update local tree
+        for id in updated_nodes:
+            node = nodes[id]
+            self.node(id)['text'] = node['text']
+
+        # update local tree
+        self.tree_updated(serverside=True, edit=updated_nodes)
+
+
+    def update_tree_from_server(self):
+        # get only nodes that have been updated since last update, as well as the update history since last update
+        response_nodes = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
+        response_history = get_history(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], timestamp=self.multiloom_settings['last_server_update'])
+
+        if response_nodes.json()['success'] == False:
+            print("Multiloom server error: " + response_nodes.json()['error'])
+            return
+        
+        if response_history.json()['success'] == False:
+            print("Multiloom server error: " + response_history.json()['error'])
+            return
+
+        nodes = response_nodes.json()['nodes']
+        nodes = {node['id']: node for node in nodes}
+        history = response_history.json()['history']
+
+        to_add = []
+
+        # run through history and delete or update nodes (w/ corresponding nodes from server)
+        for step in history:
+            node_id = step['node_id']
+            operation = step['operation']
+            if self.node(node_id):
+                if operation == 'delete':
+                    self.delete_node(node_id)
+                elif operation == 'update':
+                    self.node(node_id)['text'] = nodes[node_id]['text']
+                    self.node(node_id)['mutable'] = True
+                    self.node(node_id)['visited'] = False
+            else:
+                if operation == 'create':
+                    to_add.append(node_id)
+
+        # add new nodes
+        new_nodes = {}
+        for node_id in to_add:
+            new_nodes[node_id] = nodes[node_id]
+            new_nodes[node_id]['mutable'] = True
+            new_nodes[node_id]['visited'] = False
+
+        self.update_tree_with_nodes(new_nodes)
+
+
+    def rebuild_tree_from_server(self):
+        response = get_nodes(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if response.json()['success'] == False:
+            print("Multiloom server error: " + response.json()['error'])
+            return
+        nodes = response.json()['nodes']
+        # print(nodes)
+        # print(f"rebuilding tree, num nodes: {len(nodes)}")
+        self.update_tree_with_nodes(nodes, full_update=True)
+
+        
+        # self.tree_updated()
+
+    def server_add_node(self, node):
+        # add node to server
+
+        # get node ancestry, skip root node
+        ancestry = [node['id'] for node in node_ancestry(node, self.tree_node_dict)[1:]]
+        # print(ancestry)
+        # get nodes that exist on server
+        response = get_nodes_exist(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], node_ids=ancestry).json()
+        # print(response)
+        to_add = []
+        for id in ancestry:
+            if response['exists'][id] == False:
+                to_add.append(self.node(id))
+        
+        post_nodes(to_add, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+
+
+    def update_server_tree(self):
+        print(f"uncommitted changes: {self.multiloom_settings['uncommitted_changes']}")
+        # run through uncommitted changes and construct list of nodes to add, update, and delete
+        to_add = []
+        to_update = []
+        to_delete = []
+        for change in self.multiloom_settings['uncommitted_changes']:
+            if change['action'] == 'add':
+                to_add.append(change['id'])
+            elif change['action'] == 'delete':
+                to_delete.append(change['id'])
+            elif change['action'] == 'edit':
+                to_update.append(change['id'])
+
+        # batch add, update, and delete nodes
+        if len(to_add) > 0:
+            nodes = [self.node(id) for id in to_add]
+            post_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if len(to_update) > 0:
+            nodes = [self.node(id) for id in to_update]
+            update_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        if len(to_delete) > 0:
+            delete_nodes(to_delete, self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+
+        # clear uncommitted changes
+        self.update_user_frame({'multiloom_settings': {'uncommitted_changes': []}})
+
+        # if we still have nodes that the server doesn't have, add them
+        response = get_nodes_exist(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'], node_ids=list(self.tree_node_dict.keys())).json()
+        
+        # return if all nodes exist
+        if all(response['exists'].values()):
+            return
+        
+        # otherwise, get the list of nodes that don't exist
+        to_add = [self.node(id) for id in response['exists'] if response['exists'][id] == False]
+        if len(to_add) > 0:
+            post_nodes(to_add, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
+        
 
     #################################
     #   Cleaning
