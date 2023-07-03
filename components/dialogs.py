@@ -1084,7 +1084,8 @@ class MultiloomSettingsDialog(Dialog):
             'tree_id': self.orig_params['tree_id'],
             'authorname': self.orig_params['authorname'],
             'password': self.orig_params['password'],
-            'update_interval': self.orig_params['update_interval']
+            'update_interval': self.orig_params['update_interval'],
+            'last_server_update': '2021-01-01 00:00:00'
         }})
         # connect to multiloom server
         # self.user_params['multiloom'] = Multiloom(self.orig_params['server'], self.orig_params['port'], self.orig_params['authorname'], self.orig_params['password'])

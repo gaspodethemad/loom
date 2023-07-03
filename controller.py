@@ -114,7 +114,6 @@ class Controller:
 
         # When the tree is updated by Multiloom, refresh everything
         self.state.register_callback(self.state.multiloom_updated, self.update_nav_tree)
-        self.state.register_callback(self.state.multiloom_updated, self.fix_selection)
         self.state.register_callback(self.state.multiloom_updated, self.update_nav_tree_selected)
         self.state.register_callback(self.state.multiloom_updated, self.update_chapter_nav_tree)
         self.state.register_callback(self.state.multiloom_updated, self.update_chapter_nav_tree_selected)
@@ -124,6 +123,7 @@ class Controller:
         self.state.register_callback(self.state.multiloom_updated, self.refresh_display)
         self.state.register_callback(self.state.multiloom_updated, self.setup_custom_key_bindings)
         self.state.register_callback(self.state.multiloom_updated, self.modules_tree_updated)
+        self.state.register_callback(self.state.multiloom_updated, self.fix_selection)
 
 
     def bind(self, tk_key, f):
