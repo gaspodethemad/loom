@@ -34,7 +34,13 @@ unstable and poorly documented.
    * Open/save trees as JSON files 
    * Work with trees in multiple tabs
    * Combine trees
-   
+
+
+* Multiloom
+   * Save/load trees to/from a [Multiloom](https://github.com/gaspodethemad/multiloom) server
+   * Collaborate with others on the same tree
+   * note: this feature is still in development and may not work properly
+
 
 # Demo
 
