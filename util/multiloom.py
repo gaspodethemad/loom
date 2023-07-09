@@ -32,7 +32,7 @@ def post_node(node, author, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.post(f'http://{server}:{port}/nodes', json=data, headers=headers)
+    response = requests.post(f'http://{server}:{port}/nodes', json=data, headers=headers, timeout=5)
     return response
 
 def post_nodes(nodes, author, server, port, tree_id, password):
@@ -59,7 +59,7 @@ def post_nodes(nodes, author, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.post(f'http://{server}:{port}/nodes/batch', json=data, headers=headers)
+    response = requests.post(f'http://{server}:{port}/nodes/batch', json=data, headers=headers, timeout=5)
     return response
 
 def update_node(node, author, server, port, tree_id, password):
@@ -87,7 +87,7 @@ def update_node(node, author, server, port, tree_id, password):
     if response.status_code == 404:
         # If it doesn't, post it
         return post_node(node, author, server, port, tree_id, password)
-    response = requests.put(f'http://{server}:{port}/nodes/{node.id}', json=data, headers=headers)
+    response = requests.put(f'http://{server}:{port}/nodes/{node.id}', json=data, headers=headers, timeout=5)
     return response
 
 def update_nodes(nodes, author, server, port, tree_id, password):
@@ -113,7 +113,7 @@ def update_nodes(nodes, author, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.put(f'http://{server}:{port}/nodes/batch', json=data, headers=headers)
+    response = requests.put(f'http://{server}:{port}/nodes/batch', json=data, headers=headers, timeout=5)
     return response
 
 def delete_node(node_id, server, port, tree_id, password):
@@ -129,7 +129,7 @@ def delete_node(node_id, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.delete(f'http://{server}:{port}/nodes/{node_id}', headers=headers)
+    response = requests.delete(f'http://{server}:{port}/nodes/{node_id}', headers=headers, timeout=5)
     return response
 
 def delete_nodes(node_ids, server, port, tree_id, password):
@@ -145,7 +145,7 @@ def delete_nodes(node_ids, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.delete(f'http://{server}:{port}/nodes/batch', json=node_ids, headers=headers)
+    response = requests.delete(f'http://{server}:{port}/nodes/batch', json=node_ids, headers=headers, timeout=5)
     return response
 
 def get_node(node_id, server, port, tree_id, password):
@@ -162,7 +162,7 @@ def get_node(node_id, server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.get(f'http://{server}:{port}/nodes/{node_id}', headers=headers)
+    response = requests.get(f'http://{server}:{port}/nodes/{node_id}', headers=headers, timeout=5)
     return response
 
 def get_node_count(server, port, tree_id, password):
@@ -177,7 +177,7 @@ def get_node_count(server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.get(f'http://{server}:{port}/nodes/count', headers=headers)
+    response = requests.get(f'http://{server}:{port}/nodes/count', headers=headers, timeout=5)
     return response
 
 def get_nodes(
@@ -200,9 +200,9 @@ def get_nodes(
         "Tree-Id": tree_id
     }
     if timestamp == "":
-        response = requests.get(f'http://{server}:{port}/nodes', headers=headers)
+        response = requests.get(f'http://{server}:{port}/nodes', headers=headers, timeout=5)
     else:
-        response = requests.get(f'http://{server}:{port}/nodes/get/{timestamp}', headers=headers)
+        response = requests.get(f'http://{server}:{port}/nodes/get/{timestamp}', headers=headers, timeout=5)
     return response
 
 def get_root_node(server, port, tree_id, password):
@@ -217,7 +217,7 @@ def get_root_node(server, port, tree_id, password):
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.get(f'http://{server}:{port}/nodes/root', headers=headers)
+    response = requests.get(f'http://{server}:{port}/nodes/root', headers=headers, timeout=5)
     return response
 
 def get_history(
@@ -241,9 +241,9 @@ def get_history(
         "Tree-Id": tree_id
     }
     if timestamp == "":
-        response = requests.get(f'http://{server}:{port}/history', headers=headers)
+        response = requests.get(f'http://{server}:{port}/history', headers=headers, timeout=5)
     else:
-        response = requests.get(f'http://{server}:{port}/history/{timestamp}', headers=headers)
+        response = requests.get(f'http://{server}:{port}/history/{timestamp}', headers=headers, timeout=5)
     return response
 
 def get_node_exists(
@@ -266,7 +266,7 @@ def get_node_exists(
         "Authorization": password,
         "Tree-Id": tree_id
     }
-    response = requests.get(f'http://{server}:{port}/nodes/exists/{node_id}', headers=headers)
+    response = requests.get(f'http://{server}:{port}/nodes/exists/{node_id}', headers=headers, timeout=5)
     return response
 
 def get_nodes_exist(
@@ -292,5 +292,5 @@ def get_nodes_exist(
     data = {
         "nodeIds": node_ids
     }
-    response = requests.post(f'http://{server}:{port}/nodes/exists', json=data, headers=headers)
+    response = requests.post(f'http://{server}:{port}/nodes/exists', json=data, headers=headers, timeout=5)
     return response
