@@ -2726,22 +2726,29 @@ class TreeModel:
                 new_nodes[id] = nodes[id]
 
         # check new nodes for ancestors that aren't in the local tree
+        to_add = []
         for id in new_nodes:
             server_ancestors = self.get_ancestry_from_server(nodes[id])
-            for id in server_ancestors:
-                if id == root_id:
+            for ancestor_id in server_ancestors:
+                if ancestor_id == root_id:
                     continue
-                if id not in self.tree_node_dict and id not in new_nodes:
-                    new_nodes[id] = server_ancestors[id]
+                if ancestor_id not in self.tree_node_dict and ancestor_id not in new_nodes:
+                    # new_nodes[ancestor_id] = server_ancestors[ancestor_id]
+                    to_add.append(server_ancestors[ancestor_id])
 
         # check updated nodes for ancestors that aren't in the local tree
         for id in updated_nodes:
             server_ancestors = self.get_ancestry_from_server(nodes[id])
-            for id in server_ancestors:
-                if id == root_id:
+            for ancestor_id in server_ancestors:
+                if ancestor_id == ancestor_id:
                     continue
-                if id not in self.tree_node_dict and id not in new_nodes:
-                    new_nodes[id] = server_ancestors[id]
+                if ancestor_id not in self.tree_node_dict and ancestor_id not in new_nodes:
+                    # new_nodes[ancestor_id] = server_ancestors[ancestor_id]
+                    to_add.append(server_ancestors[ancestor_id])
+
+        # add new nodes to new_nodes
+        for node in to_add:
+            new_nodes[node['id']] = node
 
         # replace occurrences of root_id in new nodes with local root id
         for id in new_nodes:
@@ -2868,9 +2875,28 @@ class TreeModel:
             elif change['action'] == 'edit':
                 to_update.append(change['id'])
 
+        
         # batch add, update, and delete nodes
         if len(to_add) > 0:
             nodes = [self.node(id) for id in to_add]
+            # if adding a node that's a child of the root, reassign it to the server's root id
+            root_id_server = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']['id']
+            for id in to_add:
+                if self.node(id)['parent_id'] == self.tree_raw_data['root']['id']:
+                    # if so, replace the node in to_add with a copy that has the server's root id as its parent
+                    nodes[to_add.index(id)] = {
+                        'text': self.node(id)['text'],
+                        'id': id,
+                        'children': [],
+                        'parent_id': root_id_server,
+                        'mutable': True,
+                        'visited': False,
+                        'meta': {
+                            'creation_timestamp': self.node(id)['meta']['creation_timestamp'],
+                            'author': self.node(id)['meta']['author']
+                        }
+                    }
+
             post_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
         if len(to_update) > 0:
             nodes = [self.node(id) for id in to_update]
