@@ -2747,8 +2747,10 @@ class TreeModel:
                     to_add.append(server_ancestors[ancestor_id])
 
         # add new nodes to new_nodes
-        for node in to_add:
-            new_nodes[node['id']] = node
+        if len(to_add) > 0:
+            for node in to_add:
+                # print(node) DEBUG if something breaks, it's around here
+                new_nodes[node['id']] = node
 
         # replace occurrences of root_id in new nodes with local root id
         for id in new_nodes:
@@ -2875,13 +2877,16 @@ class TreeModel:
             elif change['action'] == 'edit':
                 to_update.append(change['id'])
 
-        
+        to_remove = []
         # batch add, update, and delete nodes
         if len(to_add) > 0:
             nodes = [self.node(id) for id in to_add]
             # if adding a node that's a child of the root, reassign it to the server's root id
             root_id_server = get_root_node(self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], self.multiloom_settings['password']).json()['node']['id']
             for id in to_add:
+                if self.node(id) is None:
+                    to_remove.append(id)
+                    continue
                 if self.node(id)['parent_id'] == self.tree_raw_data['root']['id']:
                     # if so, replace the node in to_add with a copy that has the server's root id as its parent
                     nodes[to_add.index(id)] = {
@@ -2896,6 +2901,10 @@ class TreeModel:
                             'author': self.node(id)['meta']['author']
                         }
                     }
+
+            for id in to_remove:
+                # remove from nodes
+                nodes.remove(self.node(id))
 
             post_nodes(nodes, self.multiloom_settings['authorname'], self.multiloom_settings['server'], self.multiloom_settings['port'], self.multiloom_settings['tree_id'], password=self.multiloom_settings['password'])
         if len(to_update) > 0:
