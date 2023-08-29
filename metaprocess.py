@@ -98,7 +98,7 @@ for filename in os.listdir("./config/metaprocesses"):
             data = json.load(f)
         name = filename.split(".")[0]
         metaprocesses[name] = {
-            "id": data["id"],
+            "id": data["id"] if "id" in data else None,
             "description": data["description"],
             "input_transform": data["input_transform"],
             "prompt_template": data["prompt_template"],
@@ -115,7 +115,7 @@ def save_metaprocess(metaprocess_name, data):
         json.dump(data, f, indent=4)
         
     # update (or add) to mplib index
-    if "id" not in data:
+    if "id" not in data or data["id"] == None:
         data["id"] = metaprocess_name.lower().replace(" ","_")
     mplib.update(data)
 
