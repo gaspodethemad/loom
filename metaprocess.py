@@ -115,6 +115,8 @@ def save_metaprocess(metaprocess_name, data):
         json.dump(data, f, indent=4)
         
     # update (or add) to mplib index
+    if "id" not in data:
+        data["id"] = metaprocess_name.lower().replace(" ","_")
     mplib.update(data)
 
 def execute_metaprocess(metaprocess_name, input):
