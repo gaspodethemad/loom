@@ -82,6 +82,10 @@ metaprocesses = {
     # "author_attribution": author_attribution,
     #"detect_swearing": detect_swearing
 }
+    
+# if no metaprocess headers folder, make one.
+if not os.path.exists("./config/metaprocesses/headers"):
+    os.makedirs("./config/metaprocesses/headers")
 
 # load metaprocess headers from files
 for filename in os.listdir("./config/metaprocesses/headers"):
