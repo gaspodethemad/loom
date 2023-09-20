@@ -5,18 +5,25 @@ from util.gpt_util import logprobs_to_probs
 
 import mplib
 
-def metaprocess(input, input_transform, prompt_template, generation_settings, output_transform):
+def metaprocess(input, aux_input, input_transform, prompt_template, generation_settings, output_transform):
     # print(f"Input: '{input}'\n")
     transformed_input = input_transform(input)
     # print(f"Transformed input: '{transformed_input}'\n")
-    prompt = prompt_template(transformed_input)
+    prompt = prompt_template(transformed_input, aux_input)
     # print(f"Prompt: '{prompt}'\n")
     # output = model_call(prompt)
     output = call_model(prompt, **generation_settings)
     # print(f"Output: '{output}'\n")
     transformed_output = output_transform(output)
     # print(f"Transformed output: '{transformed_output}'")
-    return transformed_output
+    process_log = {
+        "input": input,
+        "transformed_input": transformed_input,
+        "prompt": prompt,
+        "output": output,
+        "transformed_output": transformed_output
+    }
+    return transformed_output, process_log
 
 def call_model_completion(prompt, engine="ada", n=1, temperature=1, max_tokens=20, logprobs=0, stop=None):
     openai.api_key = os.environ.get("OPENAI_API_KEY", None)
@@ -123,10 +130,12 @@ def save_metaprocess(metaprocess_name, data):
         data["id"] = metaprocess_name.lower().replace(" ","_")
     mplib.update(data)
 
-def execute_metaprocess(metaprocess_name, input):
+def execute_metaprocess(metaprocess_name, input, aux_input=None):
+    # print("Executing metaprocess", metaprocess_name, "with input", input, "and aux input", aux_input)
     metaprocess_data = metaprocesses[metaprocess_name]
     return metaprocess(
         input,
+        aux_input,
         input_transform=eval(metaprocess_data["input_transform"]),
         prompt_template=eval(metaprocess_data["prompt_template"]),
         generation_settings=metaprocess_data["generation_settings"],
