@@ -1,0 +1,19 @@
+{
+    "description": "Extracts the events that affect the specified entity",
+    "input_transform": "lambda input: input[-24000:]",
+    "prompt_template": "lambda input, aux_input: f\"{metaprocess_headers['infrastruct']}\\n{input}\\n***\\nGive me a concise but complete bulleted list of the most important high-level events in the above text that directly involve {aux_input} (max 32 items).\\n\\n[gpt4](#message)\\n-\"",
+    "output_transform": "lambda output: [\"-\" + branch for branch in get_completion_branches(output)]",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 256,
+        "temperature": 0.8,
+        "n": 3,
+        "stop": [
+            "\n\n",
+            "***",
+            "```",
+            "'''"
+        ]
+    },
+    "output_type": "completions"
+}

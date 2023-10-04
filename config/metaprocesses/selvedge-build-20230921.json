@@ -1,0 +1,12 @@
+{
+    "description": "Extracts a list of entities from the text, then compiles a summary and history for each, then adds those to a Selvedge wiki (with wiki name specified in aux_input) or updates existing entities in the wiki that match, before generating a report",
+    "input_transform": "lambda input: '\\n\\n'.join([\"Name: {}\\nSummary: {}\".format(entity, execute_metaprocess('extract entity summary 20230921', input, aux_input=entity)[0][0]) for entity in execute_metaprocess('extract entities 20230921', input)[0]])",
+    "prompt_template": "lambda input, aux_input: f\"Text: '{input}'\\nContains {aux_input}? (Yes/No):\"",
+    "output_transform": "lambda output: get_judgement_probability(output)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 1,
+        "logprobs": 10
+    },
+    "output_type": "probability"
+}

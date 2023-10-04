@@ -1,0 +1,14 @@
+{
+    "id": "type_of_guy_agipy",
+    "description": "determine the author from provided text (agipy)",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x: f\"\"\"{metaprocess_headers[\"agipy\"]}>>> print(\"foo\")\nfoo\n>>> import numpy as np\n>>> np.array([0, 0, 0])\narray([0, 0, 0])\n>>> from AGIpy import attribute_source\n>>> print(attribute_source(\"To be, or not to be, that is the question\")\n<AGIpy.attribute_source.AttributeSource object at 0x7f8f9c0c5f60>\n>>> print(attribute_source(\"To be, or not to be, that is the question\").author)\nWilliam Shakespeare\n>>> print(attribute_source(\"This partly fixed and partly fluid content of language engenders a special relationship between it and the speaking generation. There is generated within it a stock of words and a system of rules whereby it grows, in the course of millennia, into an independent force.\").author)\nWilhelm Von Humboldt\n>>> print(attribute_source(\"If you cannot saw with a file or file with a saw, then you will be no good as an experimentalist.\").author)\nAugustin Fresnel\n>>> print(attribute_source(\"{x}\").author)\"\"\"",
+    "output_transform": "lambda x: get_completion_branches(x)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 12,
+        "n": 3,
+        "stop": "\n\n"
+    },
+    "output_type": "completions"
+}

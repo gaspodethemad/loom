@@ -1,0 +1,13 @@
+{
+    "description": "extract reasoning steps from a body of text",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x: f\"\"\"# Reasoning Step Extraction\nThe extract_reasoning function in AGIPy creates high-level descriptions for each instance of reasoning (otherwise referred to as a \"cognitive behaviour\" or \"mental movement\") in the text, abstracted from their original contexts so that they can be reused by other functions in AGIPy to construct robust, general cognitive behaviours.\n```python\n>>> from agipy import extract_reasoning\n>>> print(extract_reasoning({x}))\n\"\"\"",
+    "output_transform": "lambda x: get_completion_branches(x)",
+    "output_type": "completions",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 128,
+        "n": 3
+    },
+    "id": "extract_reasoning_steps"
+}

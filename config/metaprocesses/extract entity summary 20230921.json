@@ -1,0 +1,18 @@
+{
+    "description": "Produces a summary of the specified entity in the main text",
+    "input_transform": "lambda input: input[-24000:]",
+    "prompt_template": "lambda input, aux_input: f\"{metaprocess_headers['infrastruct']}\\n{input}\\n***\\nGive me a one-sentence high-level accurate summary of {aux_input} as described in the above text, including all relevant attributes.\\n[gpt4](#message)\\n\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 128,
+        "temperature": 0.8,
+        "n": 3,
+        "stop": [
+            "***",
+            "```",
+            "\n"
+        ]
+    },
+    "output_type": "completions"
+}

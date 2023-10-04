@@ -1,0 +1,13 @@
+{
+    "description": "Rewrites the input according to instructions provided in aux_input",
+    "input_transform": "lambda input: input[-2000:]",
+    "prompt_template": "lambda input, aux_input: f\"{metaprocess_headers['infrastruct']}Input: '{input}'\\n{aux_input}\\n\\n[gpt4](#message)\\n\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 512,
+        "n": 3,
+        "temperature": 0.9
+    },
+    "output_type": "completions"
+}

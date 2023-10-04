@@ -1,0 +1,12 @@
+{
+    "description": "Checks if the input contains the property specified in aux_input",
+    "input_transform": "lambda input: input[-2000:]",
+    "prompt_template": "lambda input, aux_input: f\"Main simulation: '{input}'\\nContains {aux_input}? (Yes/No):\"",
+    "output_transform": "lambda output: get_judgement_probability(output)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 1,
+        "logprobs": 10
+    },
+    "output_type": "probability"
+}

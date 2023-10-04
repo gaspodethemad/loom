@@ -1,0 +1,19 @@
+{
+    "description": "Given a task description which requires a compound metaprocess, produces a list of the necessary component MPs",
+    "input_transform": "lambda input: input[-2000:]",
+    "prompt_template": "lambda input, aux_input: f\"Metaprocess terminal v0.11.15\\nType \\\"help\\\", \\\"about\\\", or \\\"copyright\\\" for more information.\\nTo get started, input a task description for the engine to execute.\\n> \\\"Given a task description which requires a compound metaprocess (a chain or graph of metaprocesses), produces a list of the necessary metaprocesses which are components\\\"\\nTask loaded. Enter input or press CTRL-C to exit.\\n> \\\"Given a topic, have two AI characters debate one another, with a third judging the debate at the end\\\"\\nSubtasks:\\n   - Generate two opposing positions on topic\\n   - Using first position as context, get AI_1's dialogue turn\\n   - Using second position as context, get AI_2's dialogue turn\\n   - Run the debate for a predefined number of steps and have AI_3 judge the winner\\n>  \\\"{aux_input}\\\"\\nSubtasks:\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "output_type": "completions",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 128,
+        "temperature": 0.9,
+        "n": 3,
+        "stop": [
+            "\n>",
+            "```",
+            "\"\"\"",
+            "\n\n"
+        ]
+    }
+}

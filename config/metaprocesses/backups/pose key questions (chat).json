@@ -1,0 +1,14 @@
+{
+    "id": "pose_key_questions_chat",
+    "description": "Poses key questions about the context to a chat model",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x: f\"Please read the following text and pose what you identify as the key unanswered questions regarding it, ensuring each is concise and information-dense to be maximally helpful to the author: {x}\"",
+    "output_transform": "lambda x: get_chat_completion_branches(x)",
+    "generation_settings": {
+        "engine": "gpt-3.5-turbo",
+        "max_tokens": 256,
+        "temperature": 1,
+        "n": 1
+    },
+    "output_type": "completions"
+}

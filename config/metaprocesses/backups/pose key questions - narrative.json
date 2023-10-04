@@ -1,0 +1,14 @@
+{
+    "description": "Poses key questions about the context",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x: f\"***\\n\\n{x}\\n\\n***\\n\\nNotes on this page: I briefly listed the most important questions I'm planning on sending back, after thinking on this. I'm going for key/crucial questions first, that'd help us better understand the deep structure of the ideas here. Questions list is pasted below:\\nQ1:\"",
+    "output_transform": "lambda x: get_completion_branches(x)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 96,
+        "temperature": 1,
+        "n": 3
+    },
+    "output_type": "completions",
+    "id":"pose_key_questions_narrative"
+}

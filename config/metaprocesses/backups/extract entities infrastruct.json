@@ -1,0 +1,14 @@
+{
+    "id": "extract_entities_infrastruct",
+    "description": "extracts entities from the given text",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x, aux: f\"\"\"{metaprocess_headers['infrastruct_full']}Please extract the most important entities from the following text (ensuring they're unique, so you don't write down multiple names for the same entity twice, or extract generic words), returning it as a Python dictionary, with the names as keys, and including in each entry three attributes, 'type' ('char' for character, 'sys' for system like an environmental system or process, 'con' for abstract concept, 'loc' for location, or 'obj' for object), 'desc' (a one-sentence description of the entity), and 'aliases' (a list of aliases the entity is also referred to by, if applicable; only include if needed). A prototypical example:\n```{{\n\"<entity name>\": {{\n\"type\": \"<entity type>\",\n\"desc\":\"<description>\"\n}}\n}}\n```\nReturn only this Python dictionary, no talk or comments of any kind, as your answer will be immediately processed by a Python function (much less intelligent than yourself), and we don't want it to crash:n\n{x}\n\n[assistant](#message)\n\"\"\"",
+    "output_transform": "lambda x: get_completion_branches(x)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 512,
+        "stop": "\n\n",
+        "n": 1
+    },
+    "output_type": "completions"
+}

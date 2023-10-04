@@ -1,0 +1,13 @@
+{
+    "description": "Rewrites the last paragraph of the input according to instructions provided in aux_input",
+    "input_transform": "lambda input: input.split('\n\n')[-1]",
+    "prompt_template": "lambda input, aux_input: f\"{metaprocess_headers['infrastruct']}{input}\n\nRewrite the above paragraph according to the following instructions:\n\n{aux_input}\n\n[gpt4](#message)\n\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "output_type": "completions",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 256,
+        "n": 3,
+        "temperature": 0.9
+    }
+}

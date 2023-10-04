@@ -1,0 +1,19 @@
+{
+    "description": "drafts a metaprocess prompt template given the task description",
+    "input_transform": "lambda input: input[-2000:]",
+    "prompt_template": "lambda input, aux_input: f\"Metaprocesses v0\\ntypes: (completions, probability)\\n\\nExamples:\\n\\ndesc: \\\"Predicts the author of a given text\\\"\\ntitle: \\\"author attribution\\\"\\ntype: completions\\nprompt:\\\"Text: '{{input}}'\\\\nAuthor:\\\"\\n\\ndesc: \\\"Checks if the input contains the property specified in aux_input\\\"\\ntitle: \\\"contains property\\\"\\ntype: probability\\nprompt: \\\"Text: '{{input}}'\\\\nContains {{aux_input}}? (Yes/No):\\\"\\n\\ndesc: \\\"{aux_input}\\\"\\n\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 256,
+        "temperature": 0.9,
+        "n": 3,
+        "stop": [
+            "\n\n",
+            "```",
+            "'''",
+            "\"\"\""
+        ]
+    },
+    "output_type": "completions"
+}

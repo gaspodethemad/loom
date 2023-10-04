@@ -1,0 +1,14 @@
+{
+    "description": "Poses key questions about the context",
+    "input_transform": "lambda x: x",
+    "prompt_template": "lambda x: f\"{x}\\n\\nKey unanswered questions:\\n- \"",
+    "output_transform": "lambda x: get_completion_branches(x)",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 96,
+        "temperature": 1,
+        "n": 3
+    },
+    "output_type": "completions",
+    "id":"pose_key_questions"
+}

@@ -1,0 +1,19 @@
+{
+    "description": "Extracts a list of entities from the text",
+    "input_transform": "lambda input: input[-2000:]",
+    "prompt_template": "lambda input, aux_input: f\"{metaprocess_headers['infrastruct']}Text: '{input}'\\nContains {aux_input}? (Yes/No):\"",
+    "output_transform": "lambda output: get_completion_branches(output)",
+    "output_type": "completions",
+    "generation_settings": {
+        "engine": "gpt-4-base",
+        "max_tokens": 128,
+        "temperature": 0.5,
+        "n": 3,
+        "stop": [
+            "\n\n[",
+            "```",
+            "'''",
+            "\"\"\""
+        ]
+    }
+}

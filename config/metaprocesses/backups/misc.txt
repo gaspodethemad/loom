@@ -1,0 +1,1 @@
+"lambda x: f\"\"\"<|endoftext|>\nAGITerm 1.41.5.9 in-development version (Aug 3 2026)\n> help extract_entities\nextract_entities extracts all named entities from a given text, returning them in a bullet-point list with each item formatted as (entity name, brief entity description).\n> extract_entities {x}\n\"\"\""

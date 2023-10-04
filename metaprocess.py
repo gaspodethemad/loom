@@ -3,7 +3,7 @@ import os
 import json
 from util.gpt_util import logprobs_to_probs
 
-import mplib
+# import mplib
 
 def metaprocess(input, aux_input, input_transform, prompt_template, generation_settings, output_transform):
     # print(f"Input: '{input}'\n")
@@ -109,7 +109,7 @@ for filename in os.listdir("./config/metaprocesses"):
             data = json.load(f)
         name = filename.split(".")[0]
         metaprocesses[name] = {
-            "id": data["id"] if "id" in data else None,
+            # "id": data["id"] if "id" in data else None,
             "description": data["description"],
             "input_transform": data["input_transform"],
             "prompt_template": data["prompt_template"],
@@ -119,16 +119,16 @@ for filename in os.listdir("./config/metaprocesses"):
         }
 
         # update (or add) to mplib index
-        mplib.update(metaprocesses[name])
+        # mplib.update(metaprocesses[name])
 
 def save_metaprocess(metaprocess_name, data):
     with open(f"./config/metaprocesses/{metaprocess_name}.json", "w") as f:
         json.dump(data, f, indent=4)
         
     # update (or add) to mplib index
-    if "id" not in data or data["id"] == None:
-        data["id"] = metaprocess_name.lower().replace(" ","_")
-    mplib.update(data)
+    # if "id" not in data or data["id"] == None:
+    #     data["id"] = metaprocess_name.lower().replace(" ","_")
+    # mplib.update(data)
 
 def execute_metaprocess(metaprocess_name, input, aux_input=None):
     # print("Executing metaprocess", metaprocess_name, "with input", input, "and aux input", aux_input)
