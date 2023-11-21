@@ -1207,7 +1207,7 @@ def generation_settings_body(self, build_pins=False):
     int_sliders = {
         'num_continuations': (1, 20),
         'response_length': (1, 1000),
-        'prompt_length': (100, 7000),
+        'prompt_length': (100, 32000),
         'logprobs': (0, 100),
     }
 
