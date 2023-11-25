@@ -422,6 +422,12 @@ class TreeModel:
         return self.tree_raw_data.get("frame") \
             if self.tree_raw_data and "frame" in self.tree_raw_data \
             else {}
+    
+    @property
+    def user_plugins(self):
+        return self.user_frame.get("plugins") \
+            if "plugins" in self.user_frame \
+            else []
 
     @property
     def state(self):

@@ -1236,3 +1236,51 @@ class ModelConfigDialog(Dialog):
         # self.state.api_base = self.api_base_entry.tk_variables.get().strip()
         self.state.update_user_frame(update={'generation_settings': {'model': self.selected_model.get()}})
 
+
+class PluginManagerDialog(Dialog):
+    def __init__(self, parent, state, plugin_manager):
+        self.state = state
+        self.plugins = {}
+        self.plugin_checks = {}
+        self.master = None
+        self.plugin_manager = plugin_manager
+        Dialog.__init__(self, parent, title="Plugin Manager")
+
+    def body(self, master):
+        self.master = master
+        self.set_vars()
+        self.refresh()
+
+    def set_vars(self):
+        self.plugins = {}
+        self.plugin_checks = {}
+        for plugin in self.plugin_manager.list_plugins():
+            # add to plugins dict
+            self.plugins[plugin[0]] = plugin[1]
+            # add to plugin checks
+            self.plugin_checks[plugin[0]] = plugin[0] in self.state.user_plugins
+
+    def refresh(self):
+        for plugin, plugin_details in self.plugins.items():
+            row = self.master.grid_size()[1]
+            name = tk.Label(self.master, text=plugin_details["name"], bg=bg_color(), fg=text_color())
+            name.grid(row=row)
+            author = tk.Label(self.master, text=plugin_details['author'], bg=bg_color(), fg=text_color())
+            author.grid(row=row, column=1)
+            version = tk.Label(self.master, text=plugin_details['version'], bg=bg_color(), fg=text_color())
+            version.grid(row=row, column=2)
+            checkbutton = ttk.Checkbutton(self.master,command=self.plugin_checks.update({plugin: not self.plugin_checks[plugin]}))
+            if not self.plugin_checks[plugin]:
+                checkbutton.invoke()
+            checkbutton.grid(row=row, column=3)
+
+    def apply(self):
+        enabled_plugins = []
+        for plugin in self.plugins.keys():
+            if self.plugin_checks[plugin]:
+                # add to enabled_plugins list
+                enabled_plugins.append(plugin)
+                self.plugin_manager.load_plugin(plugin)
+            else:
+                self.plugin_manager.unload_plugin(plugin)
+        self.state.update_user_frame(update={'plugins': enabled_plugins})
