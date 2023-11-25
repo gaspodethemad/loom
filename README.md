@@ -64,6 +64,12 @@ ooo what features! wow so cool
 
 ![](static/readme/block-multiverse.png)
 
+
+# Plugins
+
+Loom's functionality can be easily extended through the use of plugins. Plugins are highly general modular extensions loaded at runtime from the plugins/ folder and can be enabled or disabled through the plugin manager, both for global and tree-specific profiles.
+
+
 # Hotkeys
 
 *Alt hotkeys correspond to Command on Mac*
