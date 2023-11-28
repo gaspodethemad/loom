@@ -68,6 +68,22 @@ class PluginManager:
             plugin_instance = plugin_module.Plugin(manifest)
             self.plugins[plugin_name] = plugin_instance
             self.plugins[plugin_name].load()
+
+            # load plugin metaprocesses
+            if os.path.exists(os.path.join(self.plugin_dir, plugin_name, "metaprocesses")):
+                if os.path.exists(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers")):
+                    print("Found metaprocess headers")
+                    for filename in os.listdir(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers")):
+                        if filename.endswith(".json"):
+                            with open(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers", filename), "r") as f:
+                                data = json.load(f)
+                            metaprocess.metaprocess_headers[filename.split(".")[0]] = data["prompt"]
+                for filename in os.listdir(os.path.join(self.plugin_dir, plugin_name, "metaprocesses")):
+                    print("Found metaprocess file", filename)
+                    if filename.endswith(".json"):
+                        print(f"Loading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_name}\"")
+                        metaprocess.metaprocesses[filename.split(".")[0]] = metaprocess.load_metaprocess(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", filename))
+
             self.plugin_states[plugin_name] = True
             return True
         return False
@@ -76,7 +92,7 @@ class PluginManager:
         """Unload a plugin by name."""
         # Indempotence check
         if not self.plugin_states.get(plugin_name, False):
-            print(f"Pl`u`gin {plugin_name} is not loaded.")
+            # print(f"Plugin {plugin_name} is not loaded.")
             return False
         if plugin_name in self.plugins:
             # Perform any cleanup if necessary
@@ -85,3 +101,27 @@ class PluginManager:
             self.plugin_states[plugin_name] = False
             return True
         return False
+    
+    def load_all(self):
+        """Load all plugins."""
+        print("=== Loading all plugins ===")
+        for plugin_name, _, _ in self.list_plugins():
+            self.load_plugin(plugin_name)
+    
+    def unload_all(self):
+        """Unload all plugins."""
+        print("=== Unloading all plugins ===")
+        for plugin_name, _, _ in self.list_plugins():
+            self.unload_plugin(plugin_name)
+
+    def load_plugins(self, plugin_names):
+        """Load selected plugins."""
+        print("=== Loading selected plugins ===")
+        for plugin_name in plugin_names:
+            self.load_plugin(plugin_name)
+    
+    def unload_plugins(self, plugin_names):
+        """Unload selected plugins."""
+        print("=== Unloading selected plugins ===")
+        for plugin_name in plugin_names:
+            self.unload_plugin(plugin_name)

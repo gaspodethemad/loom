@@ -99,20 +99,18 @@ for filename in os.listdir("./config/metaprocesses/headers"):
         name = filename.split(".")[0]
         metaprocess_headers[name] = data["prompt"]
 
-# load metaprocesses from files
-for filename in os.listdir("./config/metaprocesses"):
-    if filename.endswith(".json"):
-        with open(f"./config/metaprocesses/{filename}", "r") as f:
-            data = json.load(f)
-        name = filename.split(".")[0]
-        metaprocesses[name] = {
-            "description": data["description"],
-            "input_transform": data["input_transform"],
-            "prompt_template": data["prompt_template"],
-            "output_transform": data["output_transform"],
-            "generation_settings": data["generation_settings"],
-            "output_type": data["output_type"]
-        }
+def load_metaprocess(filepath):
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    return {
+        "id": data["id"] if "id" in data else None,
+        "description": data["description"],
+        "input_transform": data["input_transform"],
+        "prompt_template": data["prompt_template"],
+        "output_transform": data["output_transform"],
+        "generation_settings": data["generation_settings"],
+        "output_type": data["output_type"]
+    }
 
 def save_metaprocess(metaprocess_name, data):
     with open(f"./config/metaprocesses/{metaprocess_name}.json", "w") as f:
@@ -129,3 +127,9 @@ def execute_metaprocess(metaprocess_name, input, aux_input=None):
         generation_settings=metaprocess_data["generation_settings"],
         output_transform=eval(metaprocess_data["output_transform"])
     )
+
+# load metaprocesses from files
+for filename in os.listdir("./config/metaprocesses"):
+    if filename.endswith(".json"):
+        name = filename.split(".")[0]
+        metaprocesses[name] = load_metaprocess(f"config/metaprocesses/{filename}")

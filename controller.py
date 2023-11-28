@@ -60,7 +60,7 @@ class Controller:
         self.state = TreeModel(self.root)
         self.display = Display(self.root, self.callbacks, self.state, self)
         self.icons = Icons()
-        self.plugins = PluginManager("loom_plugins")
+        self.plugins = PluginManager("loom-plugins")
 
         self.register_model_callbacks()
         self.setup_key_bindings()
@@ -114,6 +114,9 @@ class Controller:
         self.state.register_callback(self.state.selection_updated, self.refresh_counterfactual_meta)
         self.state.register_callback(self.state.selection_updated, self.refresh_display)
         self.state.register_callback(self.state.selection_updated, self.modules_selection_updated)
+
+        # plugin callbacks
+        self.state.register_callback(self.state.io_update, self.reload_plugins)
 
 
     def bind(self, tk_key, f):
@@ -1675,7 +1678,7 @@ class Controller:
         if not filename:
             return
         self.state.open_tree(filename)
-
+        
     # TODO repeated code
     @metadata(name="Import JSON as subtree", keys=["<Control-Shift-KeyPress-O>"], display_key="ctrl+shift+o")
     def import_tree(self):
@@ -2686,6 +2689,14 @@ class Controller:
         elif not self.display.nav_tree.exists(self.state.selected_node_id):
             self.state.selected_node_id = self.state.find_next(node=self.state.selected_node,
                                                                filter=self.in_nav)
+            
+    #################################
+    #   Plugin callbacks
+    #################################
+
+    def reload_plugins(self):
+        self.plugins.unload_all()
+        self.plugins.load_plugins(self.state.user_plugins)
 
     #################################
     #   Programmatic weaving
