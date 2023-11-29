@@ -79,6 +79,42 @@ def get_judgement_probability(response, yes_tokens=["Yes", "yes", "Y", "y", " Ye
     no_probability = sum([logprobs_to_probs(logprobs.get(token, 0)) for token in no_tokens])
     return yes_probability / (yes_probability + no_probability)
 
+# Metaprocess save/load functions
+
+def load_metaprocess(filepath):
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    name = filepath.split("/")[-1].split(".")[0].lower()
+    return {
+        "id": data["id"] if "id" in data else name,
+        "description": data["description"],
+        "input_transform": data["input_transform"],
+        "prompt_template": data["prompt_template"],
+        "output_transform": data["output_transform"],
+        "generation_settings": data["generation_settings"],
+        "output_type": data["output_type"]
+    }
+
+def load_metaprocess_header(filepath):
+    # read metaprocess header file
+    with open(filepath, "r") as f:
+        header = f.read()
+
+    # load header as JSON
+    header = json.loads(header)
+
+    # check if valid header
+    if "prompt" not in header:
+        raise Exception(f"Error: metaprocess header is missing a 'prompt' key.")
+    
+    header["name"] = filepath.split("/")[-1].split(".")[0]
+    
+    return header
+
+def save_metaprocess(metaprocess_name, data):
+    with open(f"./config/metaprocesses/{metaprocess_name}.json", "w") as f:
+        json.dump(data, f, indent=4)
+
 
 metaprocess_headers = {}
 
@@ -90,33 +126,18 @@ metaprocesses = {
 # if no metaprocess headers folder, make one.
 if not os.path.exists("./config/metaprocesses/headers"):
     os.makedirs("./config/metaprocesses/headers")
-
-# load metaprocess headers from files
-for filename in os.listdir("./config/metaprocesses/headers"):
-    if filename.endswith(".json"):
-        with open(f"./config/metaprocesses/headers/{filename}", "r") as f:
-            data = json.load(f)
-        name = filename.split(".")[0]
-        metaprocess_headers[name] = data["prompt"]
+else:
+    # load metaprocess headers from files
+    for filename in os.listdir("./config/metaprocesses/headers"):
+        if filename.endswith(".json"):
+            header = load_metaprocess_header(f"./config/metaprocesses/headers/{filename}")
+            metaprocess_headers[header["name"]] = header["prompt"]
 
 # load metaprocesses from files
 for filename in os.listdir("./config/metaprocesses"):
     if filename.endswith(".json"):
-        with open(f"./config/metaprocesses/{filename}", "r") as f:
-            data = json.load(f)
-        name = filename.split(".")[0]
-        metaprocesses[name] = {
-            "description": data["description"],
-            "input_transform": data["input_transform"],
-            "prompt_template": data["prompt_template"],
-            "output_transform": data["output_transform"],
-            "generation_settings": data["generation_settings"],
-            "output_type": data["output_type"]
-        }
-
-def save_metaprocess(metaprocess_name, data):
-    with open(f"./config/metaprocesses/{metaprocess_name}.json", "w") as f:
-        json.dump(data, f, indent=4)
+        _mp = load_metaprocess(f"./config/metaprocesses/{filename}")
+        metaprocesses[_mp["id"]] = _mp
 
 def execute_metaprocess(metaprocess_name, input, aux_input=None):
     # print("Executing metaprocess", metaprocess_name, "with input", input, "and aux input", aux_input)
