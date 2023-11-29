@@ -1258,9 +1258,10 @@ class PluginManagerDialog(Dialog):
             # add to plugins dict
             self.plugins[plugin[0]] = plugin[1]
             # add to plugin checks
-            self.plugin_checks[plugin[0]] = plugin[0] in self.state.user_plugins
+            self.plugin_checks[plugin[0]] = tk.BooleanVar(value=plugin[0] in self.state.user_plugins)
 
     def refresh(self):
+        plugin_checkbuttons = {}
         for plugin, plugin_details in self.plugins.items():
             row = self.master.grid_size()[1]
             name = tk.Label(self.master, text=plugin_details["name"], bg=bg_color(), fg=text_color())
@@ -1269,16 +1270,15 @@ class PluginManagerDialog(Dialog):
             author.grid(row=row, column=1)
             version = tk.Label(self.master, text=plugin_details['version'], bg=bg_color(), fg=text_color())
             version.grid(row=row, column=2)
-            checkbutton = ttk.Checkbutton(self.master,command=self.plugin_checks.update({plugin: not self.plugin_checks[plugin]}))
-            if not self.plugin_checks[plugin]:
-                checkbutton.invoke()
-            checkbutton.grid(row=row, column=3)
+            plugin_checkbuttons[plugin] = ttk.Checkbutton(self.master, variable=self.plugin_checks[plugin])
+            plugin_checkbuttons[plugin].grid(row=row, column=3)
 
     def apply(self):
         enabled_plugins = []
         for plugin in self.plugins.keys():
-            if self.plugin_checks[plugin]:
+            if self.plugin_checks[plugin].get():
                 # add to enabled_plugins list
+                # print(f"Enabled: {plugin}")
                 enabled_plugins.append(plugin)
                 self.plugin_manager.load_plugin(plugin)
             else:

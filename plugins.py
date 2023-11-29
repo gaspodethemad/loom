@@ -70,19 +70,7 @@ class PluginManager:
             self.plugins[plugin_name].load()
 
             # load plugin metaprocesses
-            if os.path.exists(os.path.join(self.plugin_dir, plugin_name, "metaprocesses")):
-                if os.path.exists(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers")):
-                    print("Found metaprocess headers")
-                    for filename in os.listdir(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers")):
-                        if filename.endswith(".json"):
-                            with open(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", "headers", filename), "r") as f:
-                                data = json.load(f)
-                            metaprocess.metaprocess_headers[filename.split(".")[0]] = data["prompt"]
-                for filename in os.listdir(os.path.join(self.plugin_dir, plugin_name, "metaprocesses")):
-                    print("Found metaprocess file", filename)
-                    if filename.endswith(".json"):
-                        print(f"Loading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_name}\"")
-                        metaprocess.metaprocesses[filename.split(".")[0]] = metaprocess.load_metaprocess(os.path.join(self.plugin_dir, plugin_name, "metaprocesses", filename))
+            load_plugin_metaprocesses(os.path.join(self.plugin_dir, plugin_name))
 
             self.plugin_states[plugin_name] = True
             return True
@@ -97,6 +85,8 @@ class PluginManager:
         if plugin_name in self.plugins:
             # Perform any cleanup if necessary
             self.plugins[plugin_name].unload()
+            # unload plugin metaprocesses
+            unload_plugin_metaprocesses(os.path.join(self.plugin_dir, plugin_name))
             del self.plugins[plugin_name]
             self.plugin_states[plugin_name] = False
             return True
@@ -125,3 +115,54 @@ class PluginManager:
         print("=== Unloading selected plugins ===")
         for plugin_name in plugin_names:
             self.unload_plugin(plugin_name)
+
+###########################
+# Plugin loading helpers  #
+###########################
+
+def load_plugin_metaprocesses(plugin_path):
+    # load plugin metaprocesses
+    if os.path.exists(os.path.join(plugin_path, "metaprocesses")):
+        if os.path.exists(os.path.join(plugin_path, "metaprocesses", "headers")):
+            print("Found metaprocess headers")
+            for filename in os.listdir(os.path.join(plugin_path, "metaprocesses", "headers")):
+                if filename.endswith(".json"):
+                    with open(os.path.join(plugin_path, "metaprocesses", "headers", filename), "r") as f:
+                        data = json.load(f)
+                    metaprocess.metaprocess_headers[filename.split(".")[0]] = data["prompt"]
+        for filename in os.listdir(os.path.join(plugin_path, "metaprocesses")):
+            print("Found metaprocess file", filename)
+            if filename.endswith(".json"):
+                print(f"Loading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_path.split('/')[-1]}\"")
+                metaprocess.metaprocesses[filename.split(".")[0]] = metaprocess.load_metaprocess(os.path.join(plugin_path, "metaprocesses", filename))
+
+def unload_plugin_metaprocesses(plugin_path):
+    # unload plugin metaprocesses
+    if os.path.exists(os.path.join(plugin_path, "metaprocesses", "headers")):
+        print("Found metaprocess headers")
+        for filename in os.listdir(os.path.join(plugin_path, "metaprocesses", "headers")):
+            if filename.endswith(".json"):
+                del metaprocess.metaprocess_headers[filename.split(".")[0]]
+    for filename in os.listdir(os.path.join(plugin_path, "metaprocesses")):
+        print("Found metaprocess file", filename)
+        if filename.endswith(".json"):
+            print(f"Unloading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_path}\"")
+            del metaprocess.metaprocesses[filename.split(".")[0]]
+
+def load_plugin_tags(plugin_path):
+    ...
+
+def unload_plugin_tags(plugin_path):
+    ...
+
+def load_plugin_resources(plugin_path):
+    ...
+
+def unload_plugin_resources(plugin_path):
+    ...
+
+def load_plugin_components(plugin_path):
+    ...
+
+def unload_plugin_components(plugin_path):
+    ...
