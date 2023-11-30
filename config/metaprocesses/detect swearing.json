@@ -1,0 +1,12 @@
+{
+    "description":"Detects whether a given text contains swearing",
+    "input_transform":"lambda input: input",
+    "prompt_template":"lambda input, aux_input: f\"Text: '{input}'\\nContains swearing? (Yes/No):\"",
+    "output_transform":"lambda output: get_judgement_probability(output)",
+    "output_type": "probability",
+    "generation_settings": {
+        "engine": "davinci",
+        "max_tokens": 1,
+        "logprobs": 10
+    }
+}

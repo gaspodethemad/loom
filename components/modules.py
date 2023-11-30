@@ -13,6 +13,7 @@ from components.templates import *
 from view.tree_vis import round_rectangle
 from pprint import pformat, pprint
 from gpt import completions_text, gen
+from metaprocess import metaprocesses, execute_metaprocess, save_metaprocess
 import uuid
 import threading
 from tkinter.colorchooser import askcolor
@@ -441,7 +442,7 @@ class Notes(Module):
         self.new_note_button = None
         self.pinned_frame = None
         self.notes_frame = None
-        self.notes = NodeWindows(callbacks, buttons=['close', 'go', 'attach', 'archive', 'delete'], max_height=1)
+        self.notes = NodeWindows(callbacks, state, buttons=['close', 'go', 'attach', 'archive', 'delete'], max_height=1)
         Module.__init__(self, 'notes', callbacks, state)
 
     def build(self, parent):
@@ -481,7 +482,7 @@ class Children(Module):
         self.toggle_hidden_button = None
         self.show_hidden = False
         Module.__init__(self, 'children', callbacks, state)
-        self.children = NodeWindows(callbacks, buttons=['close', 'go', 'edit', 'archive', 'delete'],
+        self.children = NodeWindows(callbacks, state, buttons=['close', 'go', 'edit', 'archive', 'delete'],
                                     buttons_visible=True,
                                     editable=False,
                                     max_height=100,
@@ -674,7 +675,7 @@ class JanusPlayground(Module):
         self.export_button = None
         self.settings_button = None
         self.completions_frame = None
-        self.completion_windows = Windows(buttons=['close', 'append', 'attach'])
+        self.completion_windows = Windows(state=state, callbacks=callbacks, buttons=['close', 'append', 'attach'])
         self.inline_completions = None
         self.completion_index = 0
         self.model_response = None
@@ -1469,6 +1470,8 @@ class Transformers(Module):
         self.generation_settings_dashboard = None
         self.completions_frame = None
         self.completion_windows = None
+        self.state = state
+        self.callbacks = callbacks
         Module.__init__(self, "transformers", callbacks, state)
         
     def build(self, parent):
@@ -1512,7 +1515,7 @@ class Transformers(Module):
         self.generate_button.pack(side='top', expand=False)
         
         self.completions_frame = CollapsableFrame(self.frame, title='Completions', bg=bg_color())
-        self.completion_windows = Windows(buttons=['close', 'save'])
+        self.completion_windows = Windows(state=self.state, callbacks=self.callbacks, buttons=['close', 'save'])
         self.completion_windows.body(self.completions_frame.collapsable_frame)
         self.completions_frame.pack(side='top', fill='both', expand=True)
 
@@ -1682,6 +1685,207 @@ class Transformers(Module):
         self.completions_frame.show()
         for completion in response_text_list:
             self.completion_windows.open_window(completion)
+
+class MetaProcess(Module):
+    def __init__(self, callbacks, state):
+        Module.__init__(self, "metaprocess", callbacks, state)
+        self.metaprocess_name = tk.StringVar(value = "author attribution")
+
+        self.metaprocess_specification_field = None
+        self.buttons_frame = None
+
+        self.run_button = None
+        self.refresh_button = None
+
+
+        self.input_field = None
+        # self.output_field = None
+        self.completions_frame = None
+        self.completion_windows = None
+        self.output_probability_field = None
+        self.input_frame = None
+        self.input = None
+        self.aux_input_field = None
+        self.aux_input = None
+        self.output = None
+        self.process_log_frame = None
+        self.process_log_field = None
+        self.process_log = None
+
+        self.process_selector = None
+        self.new_metaprocess_button = None
+        self.clone_metaprocess_button = None
+        self.save_button = None
+        self.top_row = None
+        self.state = state
+        self.callbacks = callbacks
+        
+
+    def build(self, parent):
+        Module.build(self, parent)
+
+        self.generation_settings = self.state.generation_settings.copy()
+
+        self.top_row = tk.Frame(self.frame, bg=bg_color())
+        self.top_row.pack(side='top', fill='x', expand=False)
+
+        self.process_selector = tk.OptionMenu(self.top_row, self.metaprocess_name, *metaprocesses.keys(), command=self.load_metaprocess)
+        self.process_selector.pack(side='left', fill='x', expand=True)
+
+        self.new_metaprocess_button = ttk.Button(self.top_row, text="New", command=self.new_metaprocess)
+        self.new_metaprocess_button.pack(side='left', fill='x', expand=False)
+
+        self.save_button = ttk.Button(self.top_row, text="Save", command=self.save_metaprocess)
+        self.save_button.pack(side='left', fill='x', expand=False)
+
+        self.clone_metaprocess_button = ttk.Button(self.top_row, text="Clone", command=lambda: self.new_metaprocess(data=metaprocesses[self.metaprocess_name.get()]))
+        self.clone_metaprocess_button.pack(side='left', fill='x', expand=False)
+
+        self.metaprocess_specification_field = TextAttribute(master=self.frame, 
+                                                            attribute_name="metaprocess specification",
+                                                            read_callback=self.set_metaprocess_spec, 
+                                                            write_callback=self.update_metaprocess,
+                                                            expand=True,
+                                                            parent_module=self, max_height=30)
+        self.metaprocess_specification_field.pack(side='top', fill='both', expand=True)
+
+
+
+
+        # self.input_frame = CollapsableFrame(self.frame, title='Branch input ("input")', bg=bg_color())
+        # self.input_frame.pack(side='top', fill='both', expand=True)
+
+        # self.input_field = TextAware(self.input_frame.collapsable_frame, bd=2, height=3, undo=True, relief='raised')
+        # self.input_field.pack(side='top', fill='both', expand=True)
+        # # self.input_field.body(self.input_frame.collapsable_frame)
+        # self.input_field.configure(**textbox_config())
+        # self.input_field.configure(state='disabled')
+
+        self.aux_input_field = TextAttribute(master=self.frame, attribute_name='Auxiliary input ("aux_input")',
+                                read_callback=self.set_aux_input,
+                                write_callback=self.update_aux_input,
+                                expand=True,
+                                parent_module=self, max_height=20)
+        self.aux_input_field.pack(side='top', fill='both', expand=True)
+
+
+        self.buttons_frame = tk.Frame(self.frame, bg=bg_color())
+        self.buttons_frame.pack(side='top', fill='x', expand=False)
+
+        self.run_button = ttk.Button(self.buttons_frame, text="Run", command=self.run)
+        self.run_button.pack(side='left', fill='x', expand=True)
+
+        # self.refresh_button = ttk.Button(self.buttons_frame, text="Refresh", command=self.refresh)
+        # self.refresh_button.pack(side='left', fill='x', expand=False)
+
+        self.process_log_frame = CollapsableFrame(self.frame, title='Process log', bg=bg_color())
+        self.process_log_frame.pack(side='top', fill='both', expand=True)
+        self.process_log_field = TextAware(self.process_log_frame.collapsable_frame, bd=2, height=4, undo=True, relief='raised')
+        self.process_log_field.pack(side='top', fill='both', expand=True)
+        self.process_log_field.configure(**textbox_config(            
+            fg='white',
+            bg='black'))
+        self.process_log_field.configure(state='disabled')
+
+        self.output_probability_field = tk.Label(self.frame, text="Probability:", bg=bg_color(), fg=text_color())
+        self.output_probability_field.pack(side='top', fill='x', expand=False)
+
+        self.completions_frame = CollapsableFrame(self.frame, title='Completions', bg=bg_color())
+        self.completion_windows = Windows(state=self.state, callbacks=self.callbacks, buttons=['close', 'attach'])
+        self.completion_windows.body(self.completions_frame.collapsable_frame)
+        self.completions_frame.pack(side='top', fill='both', expand=True)
+
+        # self.input_frame.hide()
+        self.process_log_frame.hide()
+        self.completions_frame.hide()
+
+        self.load_metaprocess("author attribution")
+
+
+    def load_metaprocess(self, metaprocess_name):
+        self.metaprocess_name.set(metaprocess_name)
+        self.metaprocess_specification_field.read()
+
+    def set_metaprocess_spec(self):
+        metaprocess_data = metaprocesses[self.metaprocess_name.get()]
+        return json.dumps(metaprocess_data, indent=4)
+
+    def update_metaprocess(self, text):
+        metaprocess_data = json.loads(text)
+        metaprocesses[self.metaprocess_name.get()] = metaprocess_data
+
+    def set_aux_input(self):
+        return self.aux_input
+    
+    def update_aux_input(self, text):
+        self.aux_input = text
+
+    def new_metaprocess(self, data=None):
+        new_metaprocess_data = {}
+        # popup window to get attribute name
+        name = simpledialog.askstring("New Metaprocess", "Enter metaprocess name:")
+
+        if(data == None):
+            new_metaprocess_data = {
+                # "name": "new metaprocess",
+                "description": "description",
+                "input_transform":"lambda input: input[-2000:]",
+                "prompt_template":"lambda input, aux_input: f\"Text: '{input}'\\nContains {aux_input}? (Yes/No):\"",
+                "output_transform":"lambda output: get_judgement_probability(output)",
+                "output_type": "probability",
+                "generation_settings": {
+                    "engine": "davinci",
+                    "max_tokens": 1,
+                    "logprobs": 10
+                }
+            }
+        else:
+            new_metaprocess_data = data.copy()
+
+        metaprocesses[name] = new_metaprocess_data
+        self.process_selector['menu'].add_command(label=name, command=lambda: self.load_metaprocess(name))
+        self.load_metaprocess(name)
+
+    def save_metaprocess(self):
+        save_metaprocess(self.metaprocess_name.get(), metaprocesses[self.metaprocess_name.get()])
+        messagebox.showinfo(title=None, message="Saved!")
+
+
+    def run(self):
+        # self.output = metaprocesses[self.metaprocess_name.get()](self.input)
+        self.refresh()
+        self.output, self.process_log = execute_metaprocess(self.metaprocess_name.get(), self.input, self.aux_input)
+
+        self.completion_windows.clear_windows()
+
+        self.process_log_field.configure(state='normal')
+        self.process_log_field.delete(1.0, tk.END)
+        self.process_log_field.insert(tk.END, json.dumps(self.process_log, indent=4))
+        self.process_log_field.configure(state='disabled')
+
+        if(type(self.output) == list):
+            self.completions_frame.show()
+            for completion in self.output:
+                self.completion_windows.open_window(completion)
+        else:
+            self.completions_frame.hide()
+            self.output_probability_field.configure(text=f"Probability: {self.output}")
+
+    def refresh(self):
+        self.input = self.state.ancestry_text(self.state.selected_node)
+
+        # self.input_field.configure(state='normal')
+        # self.input_field.delete(1.0, tk.END)
+        # self.input_field.insert(tk.END, self.input)
+        # self.input_field.configure(state='disabled')
+
+    
+    def selection_updated(self):
+        self.refresh()
+
+    def tree_updated(self):
+        self.refresh()
+        
 
 
 class GenerationSettings(Module):

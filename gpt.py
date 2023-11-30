@@ -47,9 +47,6 @@ import json
 
 #ai21_api_key = os.environ.get("AI21_API_KEY", None)
 
-client = openai.Client()
-
-
 def gen(prompt, settings, config, **kwargs):
     if settings["stop"]:
         stop = parse_stop(settings["stop"])
@@ -62,6 +59,8 @@ def gen(prompt, settings, config, **kwargs):
     #if config['OPENAI_API_KEY']:
     model_info = config['models'][settings['model']]
     # print('model info:', model_info)
+    openai_api_key = kwargs.get('OPENAI_API_KEY', None)
+    client = openai.Client(api_key=openai_api_key if openai_api_key else os.environ.get("OPENAI_API_KEY", None))
     client.api_base = model_info['api_base'] if model_info['api_base'] else "https://api.openai.com/v1"
     ai21_api_key = kwargs.get('AI21_API_KEY', None)
     ai21_api_key = ai21_api_key if ai21_api_key else os.environ.get("AI21_API_KEY", None)
@@ -84,7 +83,8 @@ def gen(prompt, settings, config, **kwargs):
         #TODO 
         # ai21_api_key = config['AI21_API_KEY']
     try:
-        response, error = generate(prompt=prompt,
+        response, error = generate(client=client,
+                                prompt=prompt,
                                 length=settings['response_length'],
                                 num_continuations=settings['num_continuations'],
                                 temperature=settings['temperature'],
@@ -176,10 +176,10 @@ def openAI_token_position(token, text_offset):
 
 def format_openAI_token_dict(completion, token, i):
     token_dict = {'generatedToken': {'token': token,
-                                     'logprob': completion['logprobs']['token_logprobs'][i]},
-                  'position': openAI_token_position(token, completion['logprobs']['text_offset'][i])}
-    if completion['logprobs'].get('top_logprobs', None) is not None and completion['logprobs']['top_logprobs']:
-        openai_counterfactuals = completion['logprobs']['top_logprobs'][i]
+                                     'logprob': completion.logprobs.token_logprobs[i]},
+                  'position': openAI_token_position(token, completion.logprobs.text_offset[i])}
+    if completion.logprobs.top_logprobs:
+        openai_counterfactuals = completion.logprobs.top_logprobs[i]
         if openai_counterfactuals:
             sorted_counterfactuals = {k: v for k, v in
                                       sorted(openai_counterfactuals.items(), key=lambda item: item[1], reverse=True)}
@@ -190,10 +190,10 @@ def format_openAI_token_dict(completion, token, i):
 
 
 def format_openAI_completion(completion, prompt, prompt_end_index):
-    completion_dict = {'text': completion['text'][len(prompt):],
-                       'finishReason': completion['finish_reason'],
+    completion_dict = {'text': completion.text[len(prompt):],
+                       'finishReason': completion.finish_reason,
                        'tokens': []}
-    for i, token in enumerate(completion['logprobs']['tokens'][prompt_end_index:]):
+    for i, token in enumerate(completion.logprobs.tokens[prompt_end_index:]):
         j = i + prompt_end_index
         token_dict = format_openAI_token_dict(completion, token, j)
         completion_dict['tokens'].append(token_dict)
@@ -203,8 +203,8 @@ def format_openAI_completion(completion, prompt, prompt_end_index):
 def format_openAI_prompt(completion, prompt):
     prompt_dict = {'text': prompt, 'tokens': []}
     # loop over tokens until offset >= prompt length
-    for i, token in enumerate(completion['logprobs']['tokens']):
-        if completion['logprobs']['text_offset'][i] >= len(prompt):
+    for i, token in enumerate(completion.logprobs.tokens):
+        if completion.logprobs.text_offset[i] >= len(prompt):
             prompt_end_index = i
             break
         token_dict = format_openAI_token_dict(completion, token, i)
@@ -215,17 +215,17 @@ def format_openAI_prompt(completion, prompt):
 
 def format_openAI_response(response, prompt, echo=True):
     if echo:
-        prompt_dict, prompt_end_index = format_openAI_prompt(response['choices'][0], prompt)
+        prompt_dict, prompt_end_index = format_openAI_prompt(response.choices[0], prompt)
     else:
         prompt_dict = {'text': prompt, 'tokens': None}
         prompt_end_index = 0
         #prompt = ''
 
     response_dict = {'completions': [format_openAI_completion(completion, prompt, prompt_end_index) for completion in
-                                     response['choices']],
+                                     response.choices],
                      'prompt': prompt_dict,
-                     'id': response['id'],
-                     'model': response['model'],
+                     'id': response.id,
+                     'model': response.model,
                      'timestamp': timestamp()}
     return response_dict
 
@@ -249,17 +249,19 @@ def openAI_generate(model_type, prompt, length=150, num_continuations=1, logprob
     if model_type == 'openai-custom':
         params['model'] = model
     else:
-        params['engine'] = model
+        params['model'] = model
+    
+    client = kwargs['client']
 
 
     if model_type == 'openai-chat':
         params['messages'] = [{ 'role': "assistant", 'content': prompt }] 
-        response = client.ChatCompletion.create(
+        response = client.chatcompletions.create(
             **params
         )
     else:
         params['prompt'] = prompt
-        response = client.Completion.create(
+        response = client.completions.create(
             **params
         )
     

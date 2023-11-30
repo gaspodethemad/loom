@@ -71,7 +71,7 @@ DEFAULT_PREFERENCES = {
 
 DEFAULT_WORKSPACE = {
     'side_pane': {'open': True, 
-                  'modules': ["minimap"]},
+                  'modules': ["metaprocess"]},
     'bottom_pane': {'open': False, 
                     'modules': []},
     'buttons': ["Edit", "Delete", "Generate", "New Child", "Next", "Prev", "Visualize", "Wavefunction", "Map"],
@@ -209,6 +209,7 @@ DEFAULT_MODEL_CONFIG = {
     # 'api_base': None,
     # 'api_key': os.environ.get("API_KEY", ''),
     # 'OPENAI_API_KEY': os.environ.get("OPENAI_API_KEY", None),
+    # 'OPENAI_ORGANIZATION': os.environ.get("OPENAI_ORGANIZATION", None),
     # 'AI21_API_KEY': os.environ.get("AI21_API_KEY", None),
     # 'GOOSEAI_API_KEY': os.environ.get("GOOSEAI_API_KEY", None),
 }
@@ -421,6 +422,12 @@ class TreeModel:
         return self.tree_raw_data.get("frame") \
             if self.tree_raw_data and "frame" in self.tree_raw_data \
             else {}
+    
+    @property
+    def user_plugins(self):
+        return self.user_frame.get("plugins") \
+            if "plugins" in self.user_frame \
+            else []
 
     @property
     def state(self):
@@ -545,6 +552,7 @@ class TreeModel:
 
     # def tree_updated_silent(self):
     #     self.rebuild_tree()
+
 
     @event
     def rebuild_tree(self):
@@ -882,10 +890,10 @@ class TreeModel:
         # TODO replace with history
         node["meta"]["modified"] = False
 
-    def create_child(self, parent, expand=True):
+    def create_child(self, parent, expand=True, text=''):
         if not parent:
             return
-        new_child = new_node()
+        new_child = new_node(text=text)
         parent["children"].append(new_child)
         if expand:
             new_child["open"] = True

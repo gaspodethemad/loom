@@ -35,6 +35,8 @@ from diff_match_patch import diff_match_patch
 import json
 from view.colors import edit_color, bg_color
 
+from plugins import PluginManager
+
 
 def gated_call(f, condition):
     def _gated_call(*args, _f=f, _cond=condition, **kwargs):
@@ -58,6 +60,7 @@ class Controller:
         self.state = TreeModel(self.root)
         self.display = Display(self.root, self.callbacks, self.state, self)
         self.icons = Icons()
+        self.plugins = PluginManager("loom_plugins")
 
         self.register_model_callbacks()
         self.setup_key_bindings()
@@ -236,6 +239,7 @@ class Controller:
                 ('Visualization settings', 'Ctrl+U', None, no_junk_args(self.visualization_settings_dialog)),
                 ('Chat settings', None, None, no_junk_args(self.chat_dialog)),
                 ('Model config', None, None, no_junk_args(self.model_config_dialog)),
+                ('Plugin manager', None, None, no_junk_args(self.plugin_manager_dialog))
                 #('Settings', None, None, no_junk_args(self.settings))
 
             ],
@@ -558,9 +562,9 @@ class Controller:
         self.create_child(node=self.state.root())
 
     @metadata(name="New Child", keys=["<h>", "<Control-h>", "<Command-Right>", "<Alt-Right>"], display_key="h",)
-    def create_child(self, node=None, update_selection=True, toggle_edit=True):
+    def create_child(self, node=None, update_selection=True, toggle_edit=True, text=''):
         node = node if node else self.state.selected_node
-        new_child = self.state.create_child(parent=node)
+        new_child = self.state.create_child(parent=node, text=text)
         self.state.tree_updated(add=[new_child['id']])
         self.state.node_creation_metadata(new_child, source='prompt')
         if update_selection:
@@ -1859,6 +1863,9 @@ class Controller:
 
     def model_config_dialog(self):
         dialog = ModelConfigDialog(parent=self.display.frame, state=self.state)
+
+    def plugin_manager_dialog(self):
+        dialog = PluginManagerDialog(parent=self.display.frame, state=self.state, plugin_manager=self.plugins)
 
     @metadata(name="Visualization Settings", keys=["<Control-u>"], display_key="ctrl-u")
     def visualization_settings_dialog(self):
