@@ -36,6 +36,7 @@ class PluginManager:
         self.plugin_dir = plugin_dir
         self.plugins = {}  # Maps plugin names to plugin instances
         self.plugin_states = {}  # Maps plugin names to their load state
+        metaprocess.plugin_manager = self
 
     def list_plugins(self):
         """List all plugins and their manifests."""
@@ -68,6 +69,10 @@ class PluginManager:
             plugin_instance = plugin_module.Plugin(manifest)
             self.plugins[plugin_name] = plugin_instance
             self.plugins[plugin_name].load()
+
+            # load plugin metaprocesses
+            load_plugin_metaprocesses(os.path.join(self.plugin_dir, plugin_name))
+
             self.plugin_states[plugin_name] = True
             return True
         return False
@@ -76,12 +81,89 @@ class PluginManager:
         """Unload a plugin by name."""
         # Indempotence check
         if not self.plugin_states.get(plugin_name, False):
-            print(f"Pl`u`gin {plugin_name} is not loaded.")
+            # print(f"Plugin {plugin_name} is not loaded.")
             return False
         if plugin_name in self.plugins:
             # Perform any cleanup if necessary
             self.plugins[plugin_name].unload()
+            # unload plugin metaprocesses
+            unload_plugin_metaprocesses(os.path.join(self.plugin_dir, plugin_name))
             del self.plugins[plugin_name]
             self.plugin_states[plugin_name] = False
             return True
         return False
+    
+    def load_all(self):
+        """Load all plugins."""
+        print("=== Loading all plugins ===")
+        for plugin_name, _, _ in self.list_plugins():
+            self.load_plugin(plugin_name)
+    
+    def unload_all(self):
+        """Unload all plugins."""
+        print("=== Unloading all plugins ===")
+        for plugin_name, _, _ in self.list_plugins():
+            self.unload_plugin(plugin_name)
+
+    def load_plugins(self, plugin_names):
+        """Load selected plugins."""
+        print("=== Loading selected plugins ===")
+        for plugin_name in plugin_names:
+            self.load_plugin(plugin_name)
+    
+    def unload_plugins(self, plugin_names):
+        """Unload selected plugins."""
+        print("=== Unloading selected plugins ===")
+        for plugin_name in plugin_names:
+            self.unload_plugin(plugin_name)
+
+###########################
+# Plugin loading helpers  #
+###########################
+
+def load_plugin_metaprocesses(plugin_path):
+    # load plugin metaprocesses
+    if os.path.exists(os.path.join(plugin_path, "metaprocesses")):
+        if os.path.exists(os.path.join(plugin_path, "metaprocesses", "headers")):
+            print("Found metaprocess headers")
+            for filename in os.listdir(os.path.join(plugin_path, "metaprocesses", "headers")):
+                if filename.endswith(".json"):
+                    with open(os.path.join(plugin_path, "metaprocesses", "headers", filename), "r") as f:
+                        data = json.load(f)
+                    metaprocess.metaprocess_headers[filename.split(".")[0]] = data["prompt"]
+        for filename in os.listdir(os.path.join(plugin_path, "metaprocesses")):
+            print("Found metaprocess file", filename)
+            if filename.endswith(".json"):
+                print(f"Loading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_path.split('/')[-1]}\"")
+                metaprocess.metaprocesses[filename.split(".")[0]] = metaprocess.load_metaprocess(os.path.join(plugin_path, "metaprocesses", filename))
+
+def unload_plugin_metaprocesses(plugin_path):
+    # unload plugin metaprocesses
+    if os.path.exists(os.path.join(plugin_path, "metaprocesses", "headers")):
+        print("Found metaprocess headers")
+        for filename in os.listdir(os.path.join(plugin_path, "metaprocesses", "headers")):
+            if filename.endswith(".json"):
+                del metaprocess.metaprocess_headers[filename.split(".")[0]]
+    for filename in os.listdir(os.path.join(plugin_path, "metaprocesses")):
+        print("Found metaprocess file", filename)
+        if filename.endswith(".json"):
+            print(f"Unloading metaprocess \"{filename.split('.json')[0]}\" from plugin \"{plugin_path}\"")
+            del metaprocess.metaprocesses[filename.split(".")[0]]
+
+def load_plugin_tags(plugin_path):
+    ...
+
+def unload_plugin_tags(plugin_path):
+    ...
+
+def load_plugin_resources(plugin_path):
+    ...
+
+def unload_plugin_resources(plugin_path):
+    ...
+
+def load_plugin_components(plugin_path):
+    ...
+
+def unload_plugin_components(plugin_path):
+    ...
