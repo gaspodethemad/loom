@@ -36,6 +36,7 @@ class PluginManager:
         self.plugin_dir = plugin_dir
         self.plugins = {}  # Maps plugin names to plugin instances
         self.plugin_states = {}  # Maps plugin names to their load state
+        metaprocess.plugin_manager = self
 
     def list_plugins(self):
         """List all plugins and their manifests."""
