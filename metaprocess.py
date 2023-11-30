@@ -19,16 +19,16 @@ def metaprocess(input, aux_input, input_transform, prompt_template, generation_s
         "input": input,
         "transformed_input": transformed_input,
         "prompt": prompt,
-        "output": output,
+        "output": output.json(),
         "transformed_output": transformed_output
     }
     return transformed_output, process_log
 
 def call_model_completion(prompt, engine="ada", n=1, temperature=1, max_tokens=20, logprobs=0, stop=None):
-    openai.api_key = os.environ.get("OPENAI_API_KEY", None)
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", None)
-    response = openai.Completion.create(
-        engine=engine,
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
+    OPENAI_ORG_ID = os.environ.get("OPENAI_ORGANIZATION", None)
+    response = openai.Client(api_key=OPENAI_API_KEY, organization=OPENAI_ORG_ID).completions.create(
+        model=engine,
         prompt=prompt,
         n=n,
         temperature=temperature,
@@ -39,9 +39,9 @@ def call_model_completion(prompt, engine="ada", n=1, temperature=1, max_tokens=2
     return response
 
 def call_model_chat(prompt, engine="gpt-3.5-turbo", n=1, temperature=1, max_tokens=20, logprobs=0, stop=None):
-    openai.api_key = os.environ.get("OPENAI_API_KEY", None)
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", None)
-    response = openai.ChatCompletion.create(
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
+    OPENAI_ORG_ID = os.environ.get("OPENAI_ORGANIZATION", None)
+    response = openai.Client(api_key=OPENAI_API_KEY, organization=OPENAI_ORG_ID).chatcompletions.create(
         model=engine,
         messages=[{"role":"user","content":prompt}],
         n=n,
