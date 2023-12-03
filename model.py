@@ -205,6 +205,11 @@ DEFAULT_MODEL_CONFIG = {
             'type': 'gooseai',
             'api_base': None,
             },
+        'code-davinci-002': {
+            'model': 'code-davinci-002',
+            'type': 'cd2-proxy',
+            'api_base': 'https://ansible.plexor.tech/'
+        }
     },
     # 'api_base': None,
     # 'api_key': os.environ.get("API_KEY", ''),
@@ -339,6 +344,7 @@ class TreeModel:
         self.OPENAI_ORGANIZATION = None
         self.AI21_API_KEY = None
         self.GOOSEAI_API_KEY = None
+        self.CD2_PROXY_API_KEY = None
 
     @property
     def visualization_settings(self):
@@ -2027,7 +2033,8 @@ class TreeModel:
             OPENAI_API_KEY=self.OPENAI_API_KEY,
             OPENAI_ORGANIZATION=self.OPENAI_ORGANIZATION,
             AI21_API_KEY=self.AI21_API_KEY,
-            GOOSEAI_API_KEY=self.GOOSEAI_API_KEY,)
+            GOOSEAI_API_KEY=self.GOOSEAI_API_KEY,
+            CD2_PROXY_API_KEY=self.CD2_PROXY_API_KEY)
         self.post_generation(error, nodes, results)
 
 

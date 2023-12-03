@@ -43,8 +43,6 @@ import json
                  ? "sequence": string }
 '''
 
-
-
 #ai21_api_key = os.environ.get("AI21_API_KEY", None)
 
 def gen(prompt, settings, config, **kwargs):
@@ -64,6 +62,8 @@ def gen(prompt, settings, config, **kwargs):
     client.api_base = model_info['api_base'] if model_info['api_base'] else "https://api.openai.com/v1"
     ai21_api_key = kwargs.get('AI21_API_KEY', None)
     ai21_api_key = ai21_api_key if ai21_api_key else os.environ.get("AI21_API_KEY", None)
+    cd2_proxy_key = kwargs.get('CD2_PROXY_API_KEY', None)
+    cd2_proxy_key = cd2_proxy_key if cd2_proxy_key else os.environ.get("CD2_PROXY_API_KEY", None)
     if model_info['type'] == 'gooseai':
         # openai.api_base = openai.api_base if openai.api_base else "https://api.goose.ai/v1"
         gooseai_api_key = kwargs.get('GOOSEAI_API_KEY', None)
@@ -95,6 +95,7 @@ def gen(prompt, settings, config, **kwargs):
                                 logit_bias=logit_bias,
                                 config=config,
                                 ai21_api_key=ai21_api_key,
+                                cd2_proxy_key=cd2_proxy_key
                                 )
         return response, error
     except Exception as e:
@@ -121,6 +122,13 @@ def generate(config, **kwargs):
         formatted_response = format_openAI_response(response, kwargs['prompt'], echo=True)
         #save_response_json(formatted_response, 'examples/openAI_formatted_response.json')
         return formatted_response, error
+    elif model_type == 'cd2-proxy':
+        response, error = cd2_generate(api_key=kwargs['cd2_proxy_key'], **kwargs)
+        if response:
+            formatted_response = format_cd2_response(response, kwargs['prompt'])
+            return formatted_response, error
+        else:
+            return None, error
 
 
 def completions_text(response):
@@ -340,6 +348,104 @@ def ai21_generate(prompt, length=150, num_continuations=1, logprobs=10, temperat
     if response.status_code != 200:
         error = f'Bad status code {response.status_code}'
         print(request_json)
+    return response, error
+
+#################################
+#   code-davinci-002 proxy      #
+#################################
+
+def format_cd2_token_dict(completion, token, i):
+    token_dict = {'generatedToken': {'token': token,
+                                     'logprob': completion['logprobs']['token_logprobs'][i]},
+                  'position': openAI_token_position(token, completion['logprobs']['text_offset'][i])}
+    if completion['logprobs']['top_logprobs']:
+        cd2_counterfactuals = completion['logprobs']['top_logprobs'][i]
+        if cd2_counterfactuals:
+            sorted_counterfactuals = {k: v for k, v in
+                                      sorted(cd2_counterfactuals.items(), key=lambda item: item[1], reverse=True)}
+            token_dict['counterfactuals'] = sorted_counterfactuals
+    else:
+        token_dict['counterfactuals'] = None
+    return token_dict
+
+
+def format_cd2_completion(completion, prompt, prompt_end_index):
+
+    completion_dict = {'text': completion['text'],
+                       'finishReason': completion['finish_reason'],
+                       'tokens': []}
+    
+    if completion['logprobs'] is None:
+        return completion_dict
+    
+    for i, token in enumerate(completion['logprobs']['tokens'][prompt_end_index:]):
+        j = i + prompt_end_index
+        token_dict = format_cd2_token_dict(completion, token, j)
+        completion_dict['tokens'].append(token_dict)
+    return completion_dict
+
+
+def format_cd2_prompt(completion, prompt):
+    prompt_dict = {'text': prompt, 'tokens': []}
+    # loop over tokens until offset >= prompt length
+
+    if completion['logprobs'] is None:
+        return prompt_dict, 0
+    
+    for i, token in enumerate(completion['logprobs']['tokens']):
+        if completion['logprobs']['text_offset'][i] >= len(prompt):
+            prompt_end_index = i
+            break
+        token_dict = format_cd2_token_dict(completion, token, i)
+        prompt_dict['tokens'].append(token_dict)
+
+    return prompt_dict, prompt_end_index
+
+
+def format_cd2_response(response, prompt, echo=True):
+    response = response.json()
+    if echo and 'logprobs' in response['choices'][0]:
+        prompt_dict, prompt_end_index = format_cd2_prompt(response['choices'][0], prompt)
+    else:
+        prompt_dict = {'text': prompt, 'tokens': None}
+        prompt_end_index = 0
+        #prompt = ''
+
+    response_dict = {'completions': [format_cd2_completion(completion, prompt, prompt_end_index) for completion in
+                                     response['choices']],
+                     'prompt': prompt_dict,
+                     'id': response['id'],
+                     'model': response['model'],
+                     'timestamp': timestamp()}
+    return response_dict
+
+@retry(n_tries=3, delay=1, backoff=2, on_failure=lambda *args, **kwargs: ("", None))
+def cd2_generate(prompt, length=150, num_continuations=1, temperature=0.8, top_p=1, stop=None, api_key=None, **kwargs):
+    stop = stop if stop else []
+    request_json = {
+        "prompt": prompt,
+        "model": "code-davinci-002",
+        "max_tokens": length,
+        "n": num_continuations,
+        "temperature": temperature,
+        "top_p": top_p,
+        "frequency_penalty": kwargs.get("frequency_penalty") or 0,
+        "presence_penalty": kwargs.get("presence_penalty") or 0
+    }
+    try:
+        response = requests.post(
+            "https://ansible.plexor.tech/v1/completions",
+            headers={"Authorization": f"Bearer {api_key}",
+                     "Content-Type": "application/json"},
+            json=request_json
+        )
+    except requests.exceptions.ConnectionError:
+        return None, 'Connection error'
+    error = None
+    if response.status_code != 200:
+        error = f'Bad status code {response.status_code}'
+        print(request_json)
+        
     return response, error
 
 
